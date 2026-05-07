@@ -6,21 +6,13 @@ import { Play, Pause, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Music2 } from "lucide-react";
-
-function handleKeyDown(openFullscreen: () => void) {
-  return (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openFullscreen();
-    }
-  };
-}
+import { LikeButton } from "@/components/music/LikeButton";
 
 export function MiniPlayer() {
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 ? playlist[idx] : null;
+    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
@@ -28,6 +20,7 @@ export function MiniPlayer() {
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
   const duration = usePlayerStore((s) => s.duration);
   const currentTime = usePlayerStore((s) => s.currentTime);
+  const playbackError = usePlayerStore((s) => s.playbackError);
   const [coverUrl, setCoverUrl] = useState("");
 
   const openFullscreen = useCallback(() => {
@@ -54,9 +47,14 @@ export function MiniPlayer() {
       role="button"
       tabIndex={0}
       onClick={openFullscreen}
-      onKeyDown={handleKeyDown(openFullscreen)}
-      className="w-full glass border-t border-border px-4 py-3 flex items-center gap-3 text-left active:bg-bg-hover transition-colors cursor-pointer relative"
-      aria-label={`Now playing: ${currentSong.title} by ${currentSong.artist}. Click to open full player.`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openFullscreen();
+        }
+      }}
+      className="w-full glass border-t border-border px-3 py-2.5 flex items-center gap-3 text-left active:bg-bg-hover transition-colors cursor-pointer relative"
+      aria-label={`Now playing: ${currentSong.title} by ${currentSong.artist}. Tap to open full player.`}
     >
       {/* Progress bar */}
       <div className="mini-player-progress-bar">
@@ -68,7 +66,7 @@ export function MiniPlayer() {
         {coverUrl ? (
           <Image
             src={coverUrl}
-            alt={currentSong.title}
+            alt={`${currentSong.title} cover`}
             fill
             className="object-cover"
             sizes="44px"
@@ -85,12 +83,21 @@ export function MiniPlayer() {
         <p className="text-sm font-medium text-text-primary truncate leading-tight">
           {currentSong.title}
         </p>
-        <p className="text-xs text-text-secondary truncate leading-tight mt-0.5">
-          {currentSong.artist}
-        </p>
+        {playbackError ? (
+          <p className="text-xs text-red-400 truncate leading-tight mt-0.5">
+            {playbackError}
+          </p>
+        ) : (
+          <p className="text-xs text-text-secondary truncate leading-tight mt-0.5">
+            {currentSong.artist}
+          </p>
+        )}
       </div>
 
-      {/* Play/Pause — div[role=button] avoids nesting warning; e.stopPropagation stops fullscreen */}
+      {/* Like button */}
+      <LikeButton songId={currentSong.id} />
+
+      {/* Play/Pause */}
       <div
         role="button"
         tabIndex={0}

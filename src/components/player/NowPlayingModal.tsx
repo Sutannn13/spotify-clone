@@ -2,11 +2,12 @@
 
 import { useRef, useState, useCallback } from "react";
 import Image from "next/image";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
 import { VolumeControl } from "./VolumeControl";
+import { LikeButton } from "@/components/music/LikeButton";
 import { LyricsPanel } from "@/components/music/LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
 import { SongDetailsPanel } from "./SongDetailsPanel";
@@ -40,14 +41,14 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 ? playlist[idx] : null;
+    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
   const isFullscreen = usePlayerStore((s) => s.isFullscreen);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const playbackError = usePlayerStore((s) => s.playbackError);
 
   const [activeSlide, setActiveSlide] = useState<SlideId>("cover");
-  const [dragStart, setDragStart] = useState(0);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   const slideIndex = SLIDES.findIndex((s) => s.id === activeSlide);
@@ -101,6 +102,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
           }
         }}
         className="fixed inset-0 z-50 flex flex-col bg-bg-base md:rounded-2xl md:inset-4 md:my-auto md:mx-auto md:max-w-2xl lg:max-w-3xl"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-border/50">
@@ -146,21 +148,19 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
         </div>
 
         {/* Swipeable content */}
-        <div className="flex-1 overflow-hidden relative flex flex-col">
+        <div className="flex-1 overflow-hidden relative flex flex-col" ref={constraintsRef}>
           {/* Slides container */}
           <div className="flex-1 flex overflow-hidden">
             <motion.div
               className="flex w-full shrink-0"
-              animate={{ x: `-${
-                SLIDES.findIndex((s) => s.id === activeSlide) * 100
-              }%` }}
+              animate={{ x: `-${slideIndex * 100}%` }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
               {/* Slide 1: Cover */}
-              <div className="w-full shrink-0 flex flex-col items-center justify-center px-8 py-8 gap-6 overflow-hidden">
+              <div className="w-full shrink-0 flex flex-col items-center justify-center px-6 sm:px-8 py-6 sm:py-8 gap-5 sm:gap-6 overflow-hidden">
                 <motion.div
                   className={clsx(
-                    "relative w-full max-w-xs aspect-square rounded-2xl overflow-hidden shadow-2xl shadow-black/50 bg-bg-hover",
+                    "relative w-full max-w-[280px] sm:max-w-xs aspect-square rounded-2xl overflow-hidden shadow-2xl shadow-black/50 bg-bg-hover",
                     isPlaying && "animate-subtle-pulse"
                   )}
                   style={{
@@ -172,7 +172,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
                   {coverUrl ? (
                     <Image
                       src={coverUrl}
-                      alt={currentSong.title}
+                      alt={`${currentSong.title} cover`}
                       fill
                       className="object-cover"
                       sizes="(max-width: 640px) 85vw, 320px"
@@ -186,9 +186,12 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
                 </motion.div>
 
                 <div className="w-full text-center space-y-1">
-                  <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
-                    {currentSong.title}
-                  </h2>
+                  <div className="flex items-center justify-center gap-2">
+                    <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
+                      {currentSong.title}
+                    </h2>
+                    <LikeButton songId={currentSong.id} size="md" />
+                  </div>
                   <p className="text-sm text-text-secondary truncate">
                     {currentSong.artist}
                   </p>
@@ -196,6 +199,9 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
                     <p className="text-xs text-text-muted truncate">
                       {currentSong.album}
                     </p>
+                  )}
+                  {playbackError && (
+                    <p className="text-xs text-red-400 mt-1">{playbackError}</p>
                   )}
                 </div>
               </div>
@@ -207,12 +213,12 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
 
               {/* Slide 3: Queue */}
               <div className="w-full shrink-0 flex flex-col overflow-hidden">
-                <QueuePanel songs={songs as any} coverResolver={coverResolver as any} />
+                <QueuePanel songs={songs} coverResolver={coverResolver} />
               </div>
 
               {/* Slide 4: Details */}
               <div className="w-full shrink-0 flex flex-col overflow-hidden">
-                <SongDetailsPanel song={currentSong} coverResolver={coverResolver as any} />
+                <SongDetailsPanel song={currentSong} coverResolver={coverResolver} />
               </div>
             </motion.div>
           </div>
@@ -222,6 +228,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
             <button
               onClick={goPrev}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
+              aria-label="Previous slide"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -230,6 +237,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
             <button
               onClick={goNext}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
+              aria-label="Next slide"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -237,7 +245,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
         </div>
 
         {/* Controls footer */}
-        <div className="shrink-0 px-6 pb-8 pt-4 flex flex-col gap-4 border-t border-border/50">
+        <div className="shrink-0 px-4 sm:px-6 pb-6 sm:pb-8 pt-4 flex flex-col gap-4 border-t border-border/50">
           <ProgressBar />
           <div className="flex items-center justify-center">
             <PlayerControls size="large" />

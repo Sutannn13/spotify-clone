@@ -35,6 +35,8 @@
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     overflow-x: hidden;
+    /* iOS safe area support */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   ::selection {
@@ -112,6 +114,7 @@
   }
 }
 
+/* Equalizer bar animations */
 @keyframes eq-bar-1 {
   0%, 100% { height: 6px; }
   50% { height: 12px; }
@@ -131,6 +134,7 @@
 .animate-eq-2 { animation: eq-bar-2 0.4s ease-in-out infinite 0.15s; }
 .animate-eq-3 { animation: eq-bar-3 0.4s ease-in-out infinite 0.3s; }
 
+/* Mini player progress bar */
 .player-progress {
   height: 100%;
   background-color: var(--color-text-primary);
@@ -145,4 +149,24 @@
   right: 0;
   height: 0.125rem;
   background-color: rgba(38, 38, 38, 0.4);
+}
+
+/* Subtle pulse for now-playing cover */
+@keyframes subtle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s ease-in-out infinite;
+}
+
+/* Reduced motion: disable non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-eq-1,
+  .animate-eq-2,
+  .animate-eq-3,
+  .animate-subtle-pulse {
+    animation: none;
+  }
 }

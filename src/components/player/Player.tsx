@@ -5,7 +5,7 @@ import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
 import { VolumeControl } from "./VolumeControl";
-import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { LikeButton } from "@/components/music/LikeButton";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { useState, useEffect } from "react";
 import { Music2 } from "lucide-react";
@@ -14,9 +14,10 @@ export function Player() {
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 ? playlist[idx] : null;
+    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
+  const playbackError = usePlayerStore((s) => s.playbackError);
   const [coverUrl, setCoverUrl] = useState("");
 
   useEffect(() => {
@@ -33,18 +34,24 @@ export function Player() {
   if (!currentSong) return null;
 
   return (
-    <div
-      onClick={() => setFullscreen(true)}
-      className="glass border-t border-border px-4 py-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
-    >
+    <div className="glass border-t border-border px-4 py-3">
       <div className="flex items-center gap-4">
         {/* Now playing info */}
-        <div className="flex items-center gap-3 w-64 min-w-0 shrink-0">
+        <div
+          className="flex items-center gap-3 w-64 min-w-0 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => setFullscreen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setFullscreen(true);
+          }}
+          aria-label="Open full player"
+        >
           <div className="relative w-12 h-12 rounded-md overflow-hidden shrink-0 bg-bg-hover">
             {coverUrl ? (
               <Image
                 src={coverUrl}
-                alt={currentSong.title}
+                alt={`${currentSong.title} cover`}
                 fill
                 className="object-cover"
                 sizes="48px"
@@ -59,19 +66,26 @@ export function Player() {
             <p className="text-sm font-medium text-text-primary truncate leading-tight">
               {currentSong.title}
             </p>
-            <p className="text-xs text-text-secondary truncate leading-tight mt-0.5">
-              {currentSong.artist}
-            </p>
+            {playbackError ? (
+              <p className="text-xs text-red-400 truncate leading-tight mt-0.5">
+                {playbackError}
+              </p>
+            ) : (
+              <p className="text-xs text-text-secondary truncate leading-tight mt-0.5">
+                {currentSong.artist}
+              </p>
+            )}
           </div>
+          <LikeButton songId={currentSong.id} />
         </div>
 
-        {/* Center — controls + progress */}
+        {/* Center -- controls + progress */}
         <div className="flex-1 flex flex-col items-center gap-2 max-w-3xl mx-auto">
           <PlayerControls />
           <ProgressBar />
         </div>
 
-        {/* Right — volume */}
+        {/* Right -- volume */}
         <div className="w-40 flex justify-end">
           <VolumeControl />
         </div>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
+import { LikeButton } from "./LikeButton";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { Music2, Trash2 } from "lucide-react";
@@ -18,12 +19,13 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 ? playlist[idx] : null;
+    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
   const playSong = usePlayerStore((s) => s.playSong);
-  const toggle = usePlayerStore((s) => s.toggle);
+  const play = usePlayerStore((s) => s.play);
+  const pause = usePlayerStore((s) => s.pause);
   const playlist = usePlayerStore((s) => s.playlist);
 
   const isCurrentSong = currentSong?.id === song.id;
@@ -32,7 +34,11 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
 
   const handlePlay = () => {
     if (isCurrentSong) {
-      toggle();
+      if (isPlaying) {
+        pause();
+      } else {
+        play();
+      }
     } else {
       playSong(song, playlist.length > 0 ? playlist : [song]);
     }
@@ -54,7 +60,7 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
         {coverUrl ? (
           <Image
             src={coverUrl}
-            alt={song.title}
+            alt={`${song.title} cover`}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
@@ -66,15 +72,17 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
         )}
 
         {/* Play overlay */}
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 8 }}
-          whileHover={{ opacity: 1, y: 0 }}
+        <div
           className={clsx(
-            "absolute inset-0 flex items-center justify-center transition-opacity",
+            "absolute inset-0 flex items-center justify-center transition-opacity cursor-pointer",
             isCurrentSong ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           )}
           onClick={handlePlay}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") handlePlay();
+          }}
           aria-label={isCurrentSong && isPlaying ? "Pause" : "Play"}
         >
           <div className="w-12 h-12 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-lg">
@@ -86,7 +94,7 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
               <Play className="w-5 h-5 text-white ml-0.5" fill="currentColor" />
             )}
           </div>
-        </motion.button>
+        </div>
 
         {/* Delete button (local songs only) */}
         {song.source === "local" && onDeleteSong && (
@@ -109,13 +117,16 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
       </div>
 
       {/* Info */}
-      <div className="mt-3">
-        <p className="text-sm font-medium text-text-primary truncate">
-          {song.title}
-        </p>
-        <p className="text-xs text-text-secondary truncate mt-0.5">
-          {song.artist}
-        </p>
+      <div className="mt-3 flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-text-primary truncate">
+            {song.title}
+          </p>
+          <p className="text-xs text-text-secondary truncate mt-0.5">
+            {song.artist}
+          </p>
+        </div>
+        <LikeButton songId={song.id} />
       </div>
     </motion.div>
   );

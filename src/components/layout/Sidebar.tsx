@@ -3,13 +3,43 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Library, Search, Music, PlusSquare } from "lucide-react";
+import {
+  Home,
+  Library,
+  Search,
+  Music,
+  PlusSquare,
+  Heart,
+  Clock,
+  Sparkles,
+} from "lucide-react";
 import { clsx } from "clsx";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/library", label: "Library", icon: Library },
   { href: "/search", label: "Search", icon: Search },
+  { href: "/library", label: "Library", icon: Library },
+];
+
+const quickAccessItems = [
+  {
+    href: "/made-for-you",
+    label: "Made for You",
+    icon: Sparkles,
+    gradient: "from-accent to-purple-900",
+  },
+  {
+    href: "/recently-played",
+    label: "Recently Played",
+    icon: Clock,
+    gradient: "from-emerald-600 to-emerald-900",
+  },
+  {
+    href: "/liked",
+    label: "Liked Songs",
+    icon: Heart,
+    gradient: "from-accent to-accent-muted",
+  },
 ];
 
 interface SidebarProps {
@@ -72,7 +102,7 @@ export function Sidebar({ onAddSong }: SidebarProps) {
         </button>
       </div>
 
-      {/* Library section */}
+      {/* Quick Access section */}
       <div className="mt-6 px-6">
         <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
           Quick Access
@@ -80,22 +110,37 @@ export function Sidebar({ onAddSong }: SidebarProps) {
       </div>
 
       <div className="flex flex-col gap-1 px-3 mt-3">
-        {["Made for You", "Recently Played", "Liked Songs"].map((item) => (
-          <button
-            type="button"
-            key={item}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors text-left"
-          >
-            <div className="w-4 h-4 rounded bg-bg-hover" />
-            <span>{item}</span>
-          </button>
-        ))}
+        {quickAccessItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                isActive
+                  ? "bg-bg-hover text-text-primary"
+                  : "text-text-secondary hover:text-text-primary hover:bg-bg-hover"
+              )}
+            >
+              <div
+                className={clsx(
+                  "w-4 h-4 rounded flex items-center justify-center bg-gradient-to-br",
+                  item.gradient
+                )}
+              >
+                <item.icon className="w-2.5 h-2.5 text-white" />
+              </div>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Bottom spacer */}
       <div className="mt-auto px-6 py-6">
         <p className="text-xs text-text-muted">
-          © 2026 Aura Music
+          &copy; 2026 Aura Music
         </p>
       </div>
     </aside>

@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { Play, Pause, Loader2, MoreHorizontal, Clock, Music2, Trash2 } from "lucide-react";
+import { Play, Pause, Loader2, MoreHorizontal, Music2, Trash2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
+import { LikeButton } from "./LikeButton";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
@@ -14,7 +15,7 @@ interface SongListProps {
 }
 
 function formatDuration(seconds: number): string {
-  if (!seconds) return "—";
+  if (!seconds) return "\u2014";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -24,16 +25,21 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 ? playlist[idx] : null;
+    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
   const playSong = usePlayerStore((s) => s.playSong);
-  const toggle = usePlayerStore((s) => s.toggle);
+  const play = usePlayerStore((s) => s.play);
+  const pause = usePlayerStore((s) => s.pause);
 
   const handlePlay = (song: Song) => {
     if (currentSong?.id === song.id) {
-      toggle();
+      if (isPlaying) {
+        pause();
+      } else {
+        play();
+      }
     } else {
       playSong(song, songs);
     }
@@ -47,11 +53,12 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
   return (
     <div className="w-full">
       {/* Table header */}
-      <div className="grid grid-cols-[auto_1fr_1fr_auto] md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-3 px-4 py-2 text-xs text-text-muted border-b border-border mb-2">
+      <div className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] md:grid-cols-[auto_1fr_1fr_auto_auto_auto] gap-2 sm:gap-3 px-4 py-2 text-xs text-text-muted border-b border-border mb-2">
         <span className="w-8 text-center">#</span>
         <span>Title</span>
         <span className="hidden md:block">Album</span>
         <span className="hidden sm:block">Duration</span>
+        <span className="w-7" />
         <span className="w-10" />
       </div>
 
@@ -68,11 +75,11 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
               key={song.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03, duration: 0.2 }}
+              transition={{ delay: Math.min(i * 0.03, 0.6), duration: 0.2 }}
             >
               <div
                 className={clsx(
-                  "group grid grid-cols-[auto_1fr_1fr_auto] md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-3 px-4 py-3 rounded-lg items-center transition-colors duration-150 cursor-pointer",
+                  "group grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] md:grid-cols-[auto_1fr_1fr_auto_auto_auto] gap-2 sm:gap-3 px-4 py-3 rounded-lg items-center transition-colors duration-150 cursor-pointer min-h-[56px]",
                   isCurrent ? "bg-bg-active" : "hover:bg-bg-hover"
                 )}
                 onClick={() => handlePlay(song)}
@@ -87,17 +94,11 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
                   >
                     {i + 1}
                   </span>
-                  <button
-                    type="button"
+                  <span
                     className={clsx(
                       "hidden transition-opacity",
                       isCurrent ? "block" : "group-hover:block"
                     )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePlay(song);
-                    }}
-                    aria-label={isCurrentPlaying ? "Pause" : "Play"}
                   >
                     {isCurrentLoading ? (
                       <Loader2 className="w-4 h-4 text-accent animate-spin" />
@@ -106,7 +107,7 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
                     ) : (
                       <Play className="w-4 h-4 text-text-primary" fill="currentColor" />
                     )}
-                  </button>
+                  </span>
                 </div>
 
                 {/* Title + Artist */}
@@ -115,7 +116,7 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
                     {coverUrl ? (
                       <Image
                         src={coverUrl}
-                        alt={song.title}
+                        alt={`${song.title} cover`}
                         fill
                         className="object-cover"
                         sizes="40px"
@@ -150,6 +151,9 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
                 <span className="hidden sm:block text-sm text-text-muted tabular-nums">
                   {formatDuration(song.duration)}
                 </span>
+
+                {/* Like button */}
+                <LikeButton songId={song.id} />
 
                 {/* Actions */}
                 <div className="w-10 flex items-center justify-center gap-1">
