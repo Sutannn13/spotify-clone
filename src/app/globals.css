@@ -137,3 +137,12 @@
   border-radius: 0 9999px 9999px 0;
   transition: width 0.3s linear;
 }
+
+.mini-player-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.125rem;
+  background-color: rgba(38, 38, 38, 0.4);
+}

@@ -1,13 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { Play, Pause, Loader2 } from "lucide-react";
-import { clsx } from "clsx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Music2 } from "lucide-react";
+
+function handleKeyDown(openFullscreen: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openFullscreen();
+    }
+  };
+}
 
 export function MiniPlayer() {
   const currentSong = usePlayerStore((s) => {
@@ -22,6 +29,10 @@ export function MiniPlayer() {
   const duration = usePlayerStore((s) => s.duration);
   const currentTime = usePlayerStore((s) => s.currentTime);
   const [coverUrl, setCoverUrl] = useState("");
+
+  const openFullscreen = useCallback(() => {
+    setFullscreen(true);
+  }, [setFullscreen]);
 
   useEffect(() => {
     if (!currentSong) { setCoverUrl(""); return; }
@@ -39,11 +50,19 @@ export function MiniPlayer() {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <button
-      type="button"
-      onClick={() => setFullscreen(true)}
-      className="w-full glass border-t border-border px-4 py-3 flex items-center gap-3 text-left active:bg-bg-hover transition-colors"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openFullscreen}
+      onKeyDown={handleKeyDown(openFullscreen)}
+      className="w-full glass border-t border-border px-4 py-3 flex items-center gap-3 text-left active:bg-bg-hover transition-colors cursor-pointer relative"
+      aria-label={`Now playing: ${currentSong.title} by ${currentSong.artist}. Click to open full player.`}
     >
+      {/* Progress bar */}
+      <div className="mini-player-progress-bar">
+        <div className="player-progress" style={{ width: `${progress}%` }} />
+      </div>
+
       {/* Cover */}
       <div className="relative w-11 h-11 rounded-md overflow-hidden shrink-0 bg-bg-hover">
         {coverUrl ? (
@@ -71,14 +90,21 @@ export function MiniPlayer() {
         </p>
       </div>
 
-      {/* Play/Pause */}
-      <button
-        type="button"
+      {/* Play/Pause — div[role=button] avoids nesting warning; e.stopPropagation stops fullscreen */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={(e) => {
           e.stopPropagation();
           toggle();
         }}
-        className="w-11 h-11 flex items-center justify-center rounded-full text-text-primary shrink-0 active:scale-95 transition-transform"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+            toggle();
+          }
+        }}
+        className="w-11 h-11 flex items-center justify-center rounded-full text-text-primary shrink-0 active:scale-95 transition-transform cursor-pointer"
         aria-label={isPlaying ? "Pause" : "Play"}
       >
         {isLoading ? (
@@ -88,15 +114,7 @@ export function MiniPlayer() {
         ) : (
           <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
         )}
-      </button>
-
-      {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-border/40">
-        <div
-          className="h-full bg-text-primary rounded-r-full transition-all player-progress"
-          style={{ width: `${progress}%` }}
-        />
       </div>
-    </button>
+    </div>
   );
 }
