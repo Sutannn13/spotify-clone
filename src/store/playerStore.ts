@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Song } from "@/data/songs.types";
 
 export type RepeatMode = "none" | "one" | "all";
+export type SleepTimerOption = "off" | "5" | "10" | "15" | "30" | "45" | "60" | "end-of-song";
 
 interface PlayerState {
   playlist: Song[];
@@ -17,6 +18,12 @@ interface PlayerState {
   isLoading: boolean;
   playbackError: string | null;
   resolvedUrls: Map<string, { audioUrl: string; coverUrl: string }>;
+  // Queue management
+  queue: Song[];
+  queuePosition: number;
+  // Sleep timer
+  sleepTimer: SleepTimerOption;
+  sleepTimerEndsAt: number | null; // timestamp when timer should fire
 }
 
 interface PlayerActions {
@@ -40,6 +47,16 @@ interface PlayerActions {
   setPlaybackError: (error: string | null) => void;
   onSongEnd: () => void;
   getCurrentSong: () => Song | null;
+  // Queue actions
+  setQueue: (songs: Song[], position?: number) => void;
+  addToQueue: (song: Song) => void;
+  removeFromQueue: (songId: string) => void;
+  clearQueue: () => void;
+  moveQueueItem: (fromIndex: number, toIndex: number) => void;
+  // Sleep timer
+  setSleepTimer: (option: SleepTimerOption) => void;
+  clearSleepTimer: () => void;
+  checkSleepTimer: () => void;
 }
 
 type PlayerStore = PlayerState & PlayerActions;
@@ -58,6 +75,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isLoading: false,
   playbackError: null,
   resolvedUrls: new Map(),
+  queue: [],
+  queuePosition: -1,
+  sleepTimer: "off",
+  sleepTimerEndsAt: null,
 
   setPlaylist: (songs) => set({ playlist: songs }),
 
@@ -211,9 +232,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   setPlaybackError: (error) => set({ playbackError: error }),
 
   onSongEnd: () => {
-    const { repeatMode } = get();
+    const { repeatMode, sleepTimer, pause } = get();
+    if (sleepTimer === "end-of-song") {
+      pause();
+      set({ sleepTimer: "off", sleepTimerEndsAt: null });
+      return;
+    }
     if (repeatMode === "one") {
-      // Restart current song
       set({ currentTime: 0 });
     } else {
       get().next();
@@ -225,6 +250,74 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     return currentIndex >= 0 && currentIndex < playlist.length
       ? playlist[currentIndex]
       : null;
+  },
+
+  // Queue actions
+  setQueue: (songs, position = -1) => {
+    set({ queue: songs, queuePosition: position });
+  },
+
+  addToQueue: (song) => {
+    const { queue } = get();
+    set({ queue: [...queue, song] });
+  },
+
+  removeFromQueue: (songId) => {
+    const { queue, queuePosition } = get();
+    const idx = queue.findIndex((s) => s.id === songId);
+    if (idx === -1) return;
+    const newQueue = queue.filter((s) => s.id !== songId);
+    // Adjust queue position if needed
+    let newPos = queuePosition;
+    if (idx < queuePosition) {
+      newPos = Math.max(-1, queuePosition - 1);
+    } else if (idx === queuePosition) {
+      newPos = -1;
+    }
+    set({ queue: newQueue, queuePosition: newPos });
+  },
+
+  clearQueue: () => {
+    set({ queue: [], queuePosition: -1 });
+  },
+
+  moveQueueItem: (fromIndex, toIndex) => {
+    const { queue } = get();
+    if (fromIndex < 0 || fromIndex >= queue.length) return;
+    if (toIndex < 0 || toIndex >= queue.length) return;
+    const newQueue = [...queue];
+    const [item] = newQueue.splice(fromIndex, 1);
+    newQueue.splice(toIndex, 0, item);
+    set({ queue: newQueue });
+  },
+
+  // Sleep timer
+  setSleepTimer: (option) => {
+    if (option === "off") {
+      set({ sleepTimer: "off", sleepTimerEndsAt: null });
+    } else if (option === "end-of-song") {
+      set({ sleepTimer: "end-of-song", sleepTimerEndsAt: null });
+    } else {
+      const minutes = parseInt(option, 10);
+      const now = Date.now();
+      set({ sleepTimer: option, sleepTimerEndsAt: now + minutes * 60 * 1000 });
+    }
+  },
+
+  clearSleepTimer: () => {
+    set({ sleepTimer: "off", sleepTimerEndsAt: null });
+  },
+
+  checkSleepTimer: () => {
+    const { sleepTimer, sleepTimerEndsAt, isPlaying, pause } = get();
+    if (!isPlaying || sleepTimer === "off") return;
+
+    if (sleepTimer === "end-of-song") return; // handled by onSongEnd
+
+    if (sleepTimerEndsAt !== null && Date.now() >= sleepTimerEndsAt) {
+      pause();
+      set({ sleepTimer: "off", sleepTimerEndsAt: null });
+    }
   },
 }));
 

@@ -101,7 +101,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
             setFullscreen(false);
           }
         }}
-        className="fixed inset-0 z-50 flex flex-col bg-bg-base md:rounded-2xl md:inset-4 md:my-auto md:mx-auto md:max-w-2xl lg:max-w-3xl"
+        className="fixed inset-0 z-50 flex flex-col bg-bg-base md:rounded-2xl md:inset-4 md:my-auto md:mx-auto md:max-w-2xl lg:max-w-3xl overflow-hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Top bar */}

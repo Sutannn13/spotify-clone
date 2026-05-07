@@ -19,6 +19,8 @@ import {
   getCoverBlob,
   createObjectUrl,
   revokeObjectUrl,
+  openDB,
+  STORES,
 } from "@/lib/indexed-db";
 
 interface SongLibraryContextValue {
@@ -40,6 +42,15 @@ interface SongLibraryContextValue {
     coverFile?: File;
   }) => Promise<Song>;
   removeSong: (songId: string) => Promise<void>;
+  updateSong: (songId: string, data: {
+    title: string;
+    artist: string;
+    album: string;
+    lyrics: string;
+    lyricsType: LyricsType;
+    mood?: string;
+    genre?: string;
+  }) => Promise<void>;
   getCoverUrl: (song: Song) => string;
   refresh: () => Promise<void>;
 }
@@ -202,6 +213,51 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
     [localSongs, loadSongs]
   );
 
+  const updateSong = useCallback(
+    async (songId: string, data: {
+      title: string;
+      artist: string;
+      album: string;
+      lyrics: string;
+      lyricsType: LyricsType;
+      mood?: string;
+      genre?: string;
+    }) => {
+      const db = await openDB();
+      return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORES.SONGS, "readwrite");
+        const store = tx.objectStore(STORES.SONGS);
+        const request = store.get(songId);
+
+        request.onsuccess = () => {
+          const song = request.result as Song;
+          if (!song) {
+            reject(new Error("Song not found"));
+            return;
+          }
+          const updatedSong: Song = {
+            ...song,
+            title: data.title,
+            artist: data.artist,
+            album: data.album,
+            lyrics: data.lyrics,
+            lyricsType: data.lyricsType,
+            mood: data.mood,
+            genre: data.genre,
+          };
+          store.put(updatedSong);
+          tx.oncomplete = () => {
+            loadSongs();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    },
+    [loadSongs]
+  );
+
   const value: SongLibraryContextValue = {
     allSongs,
     localSongs,
@@ -210,6 +266,7 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
     error,
     addSong,
     removeSong,
+    updateSong,
     getCoverUrl,
     refresh: loadSongs,
   };

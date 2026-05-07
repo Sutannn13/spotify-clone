@@ -30,7 +30,10 @@ function attachListeners(audio: HTMLAudioElement) {
 
   const store = usePlayerStore;
 
-  const onTimeUpdate = () => store.getState().setCurrentTime(audio.currentTime);
+  const onTimeUpdate = () => {
+    store.getState().setCurrentTime(audio.currentTime);
+    store.getState().checkSleepTimer();
+  };
 
   const onLoadedMetadata = () => {
     store.getState().setDuration(audio.duration);
@@ -101,6 +104,7 @@ export function useAudioPlayer() {
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const currentTime = usePlayerStore((s) => s.currentTime);
+  const checkSleepTimer = usePlayerStore((s) => s.checkSleepTimer);
 
   // Attach browser audio events once
   useEffect(() => {

@@ -8,8 +8,10 @@ import { Player } from "@/components/player/Player";
 import { MiniPlayer } from "@/components/player/MiniPlayer";
 import { NowPlayingModal } from "@/components/player/NowPlayingModal";
 import { AddSongModal } from "@/components/music/AddSongModal";
+import { EditSongModal } from "@/components/music/EditSongModal";
 import { DeleteSongDialog } from "@/components/music/DeleteSongDialog";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePlayerStore } from "@/store/playerStore";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
@@ -20,11 +22,13 @@ import type { Song } from "@/data/songs.types";
 interface LayoutContextValue {
   openAddSong: () => void;
   openDeleteSong: (song: Song) => void;
+  openEditSong: (song: Song) => void;
 }
 
 const LayoutContext = createContext<LayoutContextValue>({
   openAddSong: () => {},
   openDeleteSong: () => {},
+  openEditSong: () => {},
 });
 
 export function useLayout() {
@@ -37,8 +41,9 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   useAudioPlayer();
+  useKeyboardShortcuts();
 
-  const { allSongs, addSong, removeSong } = useSongLibrary();
+  const { allSongs, addSong, removeSong, updateSong } = useSongLibrary();
 
   const isFullscreen = usePlayerStore((s) => s.isFullscreen);
   const currentSong = usePlayerStore((s) => {
@@ -52,6 +57,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [addSongOpen, setAddSongOpen] = useState(false);
   const [deleteSongId, setDeleteSongId] = useState<string | null>(null);
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
+  const [editSong, setEditSong] = useState<Song | null>(null);
+  const [editSongOpen, setEditSongOpen] = useState(false);
   const prevSongIdRef = useRef<string | null>(null);
 
   // Track recently played when a new song starts playing
@@ -94,6 +101,10 @@ export function MainLayout({ children }: MainLayoutProps) {
     setSongToDelete(song);
     setDeleteSongId(song.id);
   }, []);
+  const openEditSong = useCallback((song: Song) => {
+    setEditSong(song);
+    setEditSongOpen(true);
+  }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!songToDelete) return;
@@ -124,7 +135,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     : "pb-[56px] md:pb-4 lg:pb-4";
 
   return (
-    <LayoutContext.Provider value={{ openAddSong, openDeleteSong }}>
+    <LayoutContext.Provider value={{ openAddSong, openDeleteSong, openEditSong }}>
       <div className="flex h-screen overflow-hidden bg-bg-base">
         <Sidebar onAddSong={openAddSong} />
 
@@ -174,6 +185,16 @@ export function MainLayout({ children }: MainLayoutProps) {
             setSongToDelete(null);
           }}
           onConfirm={handleDeleteConfirm}
+        />
+
+        <EditSongModal
+          isOpen={editSongOpen}
+          song={editSong}
+          onClose={() => {
+            setEditSongOpen(false);
+            setEditSong(null);
+          }}
+          onSave={updateSong}
         />
       </div>
     </LayoutContext.Provider>

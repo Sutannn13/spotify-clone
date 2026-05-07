@@ -9,14 +9,16 @@ import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Search, X, Music2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { Song } from "@/data/songs.types";
+import { getLikedSongIds } from "@/lib/storage";
 
-type FilterType = "all" | "songs" | "artists" | "albums" | "local" | "static";
+type FilterType = "all" | "songs" | "artists" | "albums" | "local" | "static" | "liked";
 
 const FILTERS: { key: FilterType; label: string }[] = [
   { key: "all", label: "All" },
   { key: "songs", label: "Songs" },
   { key: "artists", label: "Artists" },
   { key: "albums", label: "Albums" },
+  { key: "liked", label: "Liked" },
   { key: "local", label: "Local Uploads" },
   { key: "static", label: "Built-in" },
 ];
@@ -26,6 +28,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +45,14 @@ export default function SearchPage() {
     };
     if (allSongs.length > 0) load();
   }, [allSongs]);
+
+  // Poll for liked song changes
+  useEffect(() => {
+    const loadLiked = () => setLikedIds(new Set(getLikedSongIds()));
+    loadLiked();
+    const interval = setInterval(loadLiked, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getCover = useCallback(
     (song: Song) => coverMap.get(song.id) ?? "",
@@ -73,6 +84,9 @@ export default function SearchPage() {
       case "static":
         filtered = filtered.filter((s) => s.source === "static");
         break;
+      case "liked":
+        filtered = filtered.filter((s) => likedIds.has(s.id));
+        break;
       case "artists": {
         // Group by artist, show unique artists
         const seen = new Set<string>();
@@ -101,7 +115,7 @@ export default function SearchPage() {
     }
 
     return filtered;
-  }, [query, allSongs, activeFilter]);
+  }, [query, allSongs, activeFilter, likedIds]);
 
   return (
     <MainLayout>

@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Play, Pause, Loader2, Clock, Music2 } from "lucide-react";
+import { Play, Pause, Loader2, Clock, Music2, Trash2, ChevronUp, ChevronDown, ListMusic } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
+import { useState } from "react";
 
 interface QueuePanelProps {
   songs: Song[];
@@ -29,19 +30,63 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
   const isLoading = usePlayerStore((s) => s.isLoading);
   const playSong = usePlayerStore((s) => s.playSong);
   const toggle = usePlayerStore((s) => s.toggle);
+  const queue = usePlayerStore((s) => s.queue);
+  const moveQueueItem = usePlayerStore((s) => s.moveQueueItem);
+  const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
+  const clearQueue = usePlayerStore((s) => s.clearQueue);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+
+  const [localQueue, setLocalQueue] = useState<Song[]>([]);
+  const displayQueue = queue.length > 0 ? queue : localQueue;
 
   const handlePlay = (song: Song) => {
     if (currentSong?.id === song.id) {
       toggle();
     } else {
-      playSong(song, songs);
+      playSong(song, displayQueue);
     }
   };
 
-  if (songs.length === 0) {
+  const handleMoveUp = (index: number) => {
+    if (index <= 0) return;
+    if (queue.length > 0) {
+      moveQueueItem(index, index - 1);
+    } else {
+      setLocalQueue(prev => {
+        const newQueue = [...prev];
+        const [item] = newQueue.splice(index, 1);
+        newQueue.splice(index - 1, 0, item);
+        return newQueue;
+      });
+    }
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index >= displayQueue.length - 1) return;
+    if (queue.length > 0) {
+      moveQueueItem(index, index + 1);
+    } else {
+      setLocalQueue(prev => {
+        const newQueue = [...prev];
+        const [item] = newQueue.splice(index, 1);
+        newQueue.splice(index + 1, 0, item);
+        return newQueue;
+      });
+    }
+  };
+
+  const handleRemove = (songId: string) => {
+    if (queue.length > 0) {
+      removeFromQueue(songId);
+    } else {
+      setLocalQueue(prev => prev.filter(s => s.id !== songId));
+    }
+  };
+
+  if (displayQueue.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-text-muted py-16">
-        <Music2 className="w-10 h-10 opacity-30" />
+        <ListMusic className="w-10 h-10 opacity-30" />
         <p className="text-sm">Your queue is empty</p>
         <p className="text-xs">Play a song to start building your queue</p>
       </div>
@@ -50,14 +95,26 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-6 pt-4 pb-2 shrink-0">
+      <div className="px-6 pt-4 pb-2 shrink-0 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-          Up Next — {songs.length} song{songs.length !== 1 ? "s" : ""}
+          Up Next — {displayQueue.length} song{displayQueue.length !== 1 ? "s" : ""}
         </p>
+        {displayQueue.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              if (queue.length > 0) clearQueue();
+              else setLocalQueue([]);
+            }}
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-3">
-        {songs.map((song, i) => {
+        {displayQueue.map((song, i) => {
           const isCurrent = currentSong?.id === song.id;
           const isCurrentLoading = isCurrent && isLoading;
           const isCurrentPlaying = isCurrent && isPlaying;
@@ -72,12 +129,11 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
             >
               <div
                 className={clsx(
-                  "group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-colors",
+                  "group flex items-center gap-2 px-3 py-3 rounded-xl transition-colors",
                   isCurrent ? "bg-bg-active" : "hover:bg-bg-hover"
                 )}
-                onClick={() => handlePlay(song)}
               >
-                {/* Number / Playing */}
+                {/* Drag handle / Number */}
                 <div className="w-6 flex items-center justify-center shrink-0">
                   <span
                     className={clsx(
@@ -88,6 +144,7 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
                     {i + 1}
                   </span>
                   <button
+                    type="button"
                     className={clsx(
                       "hidden transition-opacity",
                       isCurrent ? "block" : "group-hover:block"
@@ -109,7 +166,10 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
                 </div>
 
                 {/* Cover */}
-                <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-bg-hover">
+                <div
+                  className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-bg-hover cursor-pointer"
+                  onClick={() => handlePlay(song)}
+                >
                   {coverUrl ? (
                     <Image
                       src={coverUrl}
@@ -126,7 +186,7 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handlePlay(song)}>
                   <p
                     className={clsx(
                       "text-sm font-medium truncate leading-tight",
@@ -141,9 +201,39 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
                 </div>
 
                 {/* Duration */}
-                <span className="text-xs text-text-muted tabular-nums shrink-0">
+                <span className="text-xs text-text-muted tabular-nums shrink-0 hidden sm:block">
                   {formatDuration(song.duration)}
                 </span>
+
+                {/* Queue controls */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveUp(i)}
+                    disabled={i === 0}
+                    className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Move up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveDown(i)}
+                    disabled={i === displayQueue.length - 1}
+                    className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Move down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(song.id)}
+                    className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-red-400 transition-colors"
+                    aria-label="Remove from queue"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </motion.div>
           );

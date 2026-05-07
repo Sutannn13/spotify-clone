@@ -9,7 +9,9 @@ const STORES = {
   COVER_BLOBS: "cover-blobs",
 } as const;
 
-function openDB(): Promise<IDBDatabase> {
+export { STORES };
+
+export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 

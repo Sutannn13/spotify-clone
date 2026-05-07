@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
+import { SleepTimerControl } from "./SleepTimerControl";
 
 export function PlayerControls({ size = "default" }: { size?: "default" | "large" }) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -33,6 +34,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
     <div className="flex items-center gap-1">
       {/* Shuffle */}
       <button
+        type="button"
         onClick={toggleShuffle}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-all",
@@ -41,13 +43,14 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             : "text-text-secondary hover:text-text-primary"
         )}
         aria-label="Shuffle"
-        aria-pressed={isShuffled}
+        aria-pressed={isShuffled ? "true" : "false"}
       >
         <Shuffle className={clsx(iconSize < 20 && "w-4 h-4")} style={{ width: iconSize * 0.8, height: iconSize * 0.8 }} />
       </button>
 
       {/* Prev */}
       <button
+        type="button"
         onClick={prev}
         disabled={playlist.length === 0}
         className={clsx(
@@ -66,6 +69,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
 
       {/* Play / Pause */}
       <button
+        type="button"
         onClick={toggle}
         disabled={playlist.length === 0}
         className={clsx(
@@ -113,6 +117,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
 
       {/* Next */}
       <button
+        type="button"
         onClick={next}
         disabled={playlist.length === 0}
         className={clsx(
@@ -131,6 +136,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
 
       {/* Repeat */}
       <button
+        type="button"
         onClick={cycleRepeat}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-all relative",
@@ -139,7 +145,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             : "text-text-secondary hover:text-text-primary"
         )}
         aria-label={`Repeat: ${repeatMode}`}
-        aria-pressed={repeatMode !== "none"}
+        aria-pressed={repeatMode !== "none" ? "true" : "false"}
       >
         {repeatMode === "one" ? (
           <Repeat1
@@ -158,6 +164,9 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
           </span>
         )}
       </button>
+
+      {/* Sleep timer */}
+      <SleepTimerControl />
     </div>
   );
 }
