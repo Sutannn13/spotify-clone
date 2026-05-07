@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { usePlayerStore } from "@/store/playerStore";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 
 export function NowPlayingInfo() {
   const currentSong = usePlayerStore((s) => {
@@ -14,15 +14,13 @@ export function NowPlayingInfo() {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-bg-hover">
-        <Image
-          src={currentSong.coverUrl}
-          alt={currentSong.title}
-          fill
-          className="object-cover"
-          sizes="40px"
-        />
-      </div>
+      <PremiumCover
+        src={currentSong.coverUrl}
+        alt={currentSong.title}
+        size="xs"
+        rounded="sm"
+        sizes="40px"
+      />
       <div className="min-w-0">
         <p className="text-sm font-medium text-text-primary truncate leading-tight">
           {currentSong.title}

@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { Play, Clock, Music2 } from "lucide-react";
+import { Play, Clock } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { clsx } from "clsx";
 import type { Song } from "@/data/songs.types";
 
@@ -46,27 +46,23 @@ export function HeroSection({ featuredSong, getCover }: HeroSectionProps) {
       </div>
 
       <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
-        {/* Cover */}
+        {/* Cover with 3D tilt */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="relative w-36 h-36 sm:w-40 sm:h-40 md:w-52 md:h-52 rounded-xl overflow-hidden shadow-2xl shadow-black/40 shrink-0"
+          className="shrink-0"
         >
-          {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt={`${featuredSong.title} album cover`}
-              fill
-              className="object-cover"
-              sizes="(max-width: 640px) 144px, (max-width: 768px) 160px, 208px"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
-              <Music2 className="w-12 h-12 text-text-muted" />
-            </div>
-          )}
+          <PremiumCover
+            src={coverUrl}
+            alt={`${featuredSong.title} album cover`}
+            size="hero"
+            rounded="xl"
+            tilt
+            playing={isCurrentPlaying}
+            priority
+            sizes="(max-width: 640px) 144px, (max-width: 768px) 160px, 208px"
+          />
         </motion.div>
 
         {/* Info */}

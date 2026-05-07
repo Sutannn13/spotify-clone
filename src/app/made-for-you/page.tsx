@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Image from "next/image";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import { usePlayerStore } from "@/store/playerStore";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
@@ -261,23 +261,20 @@ export default function MadeForYouPage() {
                         className="group flex flex-col shrink-0 w-36 sm:w-40 text-left"
                       >
                         <div className="relative aspect-square rounded-lg overflow-hidden bg-bg-hover mb-2.5">
-                          {cover ? (
-                            <Image
-                              src={cover}
-                              alt={`${song.title} cover`}
-                              fill
-                              className="object-cover transition-transform duration-300 group-hover:scale-105"
-                              sizes="160px"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
-                              <Music2 className="w-8 h-8 text-text-muted" />
-                            </div>
-                          )}
+                          <PremiumCover
+                            src={cover}
+                            alt={`${song.title} cover`}
+                            size="xl"
+                            rounded="lg"
+                            tilt
+                            playing={isCurrentPlaying}
+                            sizes="160px"
+                            className="w-full h-full"
+                          />
                           {/* Play overlay */}
                           <div
                             className={clsx(
-                              "absolute inset-0 flex items-center justify-center transition-opacity",
+                              "absolute inset-0 flex items-center justify-center transition-opacity z-20",
                               isCurrent
                                 ? "opacity-100"
                                 : "opacity-0 group-hover:opacity-100"
@@ -299,7 +296,7 @@ export default function MadeForYouPage() {
                             </div>
                           </div>
                           {isCurrent && !isCurrentPlaying && (
-                            <div className="absolute bottom-1.5 right-1.5">
+                            <div className="absolute bottom-1.5 right-1.5 z-20">
                               <div className="w-2 h-2 rounded-full bg-accent" />
                             </div>
                           )}

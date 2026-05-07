@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
 import { VolumeControl } from "./VolumeControl";
 import { LyricsPanel } from "@/components/music/LyricsPanel";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { AlignLeft, ChevronDown } from "lucide-react";
 import { useState } from "react";
 
@@ -17,6 +17,7 @@ export function PlayerFullscreen() {
     return idx >= 0 ? playlist[idx] : null;
   });
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const [showLyrics, setShowLyrics] = useState(false);
 
   if (!currentSong) return null;
@@ -63,15 +64,18 @@ export function PlayerFullscreen() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
-              className="relative w-full max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl shadow-black/50"
             >
-              <Image
+              <PremiumCover
                 src={currentSong.coverUrl}
                 alt={currentSong.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 90vw, 400px"
+                size="xl"
+                rounded="2xl"
+                tilt
+                playing={isPlaying}
+                showDisc
                 priority
+                sizes="(max-width: 640px) 90vw, 400px"
+                className="w-full max-w-sm"
               />
             </motion.div>
 

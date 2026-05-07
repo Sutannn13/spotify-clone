@@ -114,7 +114,7 @@
   }
 }
 
-/* Equalizer bar animations */
+/* ===== Equalizer bar animations ===== */
 @keyframes eq-bar-1 {
   0%, 100% { height: 6px; }
   50% { height: 12px; }
@@ -134,11 +134,13 @@
 .animate-eq-2 { animation: eq-bar-2 0.4s ease-in-out infinite 0.15s; }
 .animate-eq-3 { animation: eq-bar-3 0.4s ease-in-out infinite 0.3s; }
 
-/* Mini player progress bar */
+/* ===== Mini player progress bar ===== */
 .player-progress {
   height: 100%;
   background-color: var(--color-text-primary);
   border-radius: 0 9999px 9999px 0;
+  /* Use transform for GPU-accelerated smooth updates */
+  will-change: width;
   transition: width 0.3s linear;
 }
 
@@ -151,6 +153,57 @@
   background-color: rgba(38, 38, 38, 0.4);
 }
 
+/* ===== Premium Cover System ===== */
+
+/* Fallback cover: charcoal gradient with subtle border */
+.premium-cover-fallback {
+  background: linear-gradient(145deg, #1c1c1e, #131315);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Soft shadow for album art depth */
+.premium-cover-shadow {
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Playing state: elevated shadow with subtle warm tint */
+.premium-cover-playing {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 48px rgba(225, 29, 72, 0.06);
+}
+
+/* ===== Vinyl Disc ===== */
+
+.premium-disc {
+  opacity: 0.35;
+  transform: translateX(12%) scale(0.92);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.premium-disc-spinning {
+  opacity: 0.45;
+  transform: translateX(14%) scale(0.94);
+}
+
+@keyframes disc-spin {
+  from { transform: translateX(14%) scale(0.94) rotate(0deg); }
+  to { transform: translateX(14%) scale(0.94) rotate(360deg); }
+}
+
+.premium-disc-spinning > div {
+  animation: disc-spin 8s linear infinite;
+}
+
+/* ===== 3D Perspective Wrapper ===== */
+
+.premium-cover-perspective {
+  transform-style: preserve-3d;
+}
+
 /* Subtle pulse for now-playing cover */
 @keyframes subtle-pulse {
   0%, 100% { transform: scale(1); }
@@ -161,12 +214,48 @@
   animation: subtle-pulse 3s ease-in-out infinite;
 }
 
-/* Reduced motion: disable non-essential animations */
+/* ===== SongList Equalizer for currently playing ===== */
+
+.eq-bar-active {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 14px;
+}
+
+.eq-bar-active span {
+  width: 2px;
+  border-radius: 1px;
+  background-color: var(--color-accent);
+}
+
+/* ===== Reduced motion: disable non-essential animations ===== */
 @media (prefers-reduced-motion: reduce) {
   .animate-eq-1,
   .animate-eq-2,
   .animate-eq-3,
   .animate-subtle-pulse {
     animation: none;
+  }
+
+  .premium-disc-spinning > div {
+    animation: none;
+  }
+
+  .premium-cover-playing {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .player-progress {
+    transition: none;
+  }
+}
+
+/* ===== Hide vinyl on small screens for performance ===== */
+@media (max-width: 480px) {
+  .premium-disc {
+    display: none;
   }
 }

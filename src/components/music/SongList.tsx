@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import { Play, Pause, Loader2, MoreHorizontal, Music2, Trash2 } from "lucide-react";
+import { Play, Pause, Loader2, MoreHorizontal, Trash2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
@@ -78,47 +78,51 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
               >
                 {/* Number / Playing indicator */}
                 <div className="w-8 flex items-center justify-center shrink-0">
-                  <span
-                    className={clsx(
-                      "text-sm tabular-nums transition-opacity",
-                      isCurrent ? "hidden" : "group-hover:hidden text-text-muted"
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-                  <span
-                    className={clsx(
-                      "hidden transition-opacity",
-                      isCurrent ? "block" : "group-hover:block"
-                    )}
-                    aria-hidden="true"
-                  >
-                    {isCurrentLoading ? (
-                      <Loader2 className="w-4 h-4 text-accent animate-spin" />
-                    ) : isCurrentPlaying ? (
-                      <Pause className="w-4 h-4 text-accent" fill="currentColor" />
-                    ) : (
-                      <Play className="w-4 h-4 text-text-primary" fill="currentColor" />
-                    )}
-                  </span>
+                  {isCurrentPlaying ? (
+                    <div className="eq-bar-active" aria-label="Now playing">
+                      <span className="animate-eq-1" style={{ height: "8px" }} />
+                      <span className="animate-eq-2" style={{ height: "6px" }} />
+                      <span className="animate-eq-3" style={{ height: "10px" }} />
+                    </div>
+                  ) : (
+                    <>
+                      <span
+                        className={clsx(
+                          "text-sm tabular-nums transition-opacity",
+                          isCurrent ? "hidden" : "group-hover:hidden text-text-muted"
+                        )}
+                      >
+                        {i + 1}
+                      </span>
+                      <span
+                        className={clsx(
+                          "hidden transition-opacity",
+                          isCurrent ? "block" : "group-hover:block"
+                        )}
+                        aria-hidden="true"
+                      >
+                        {isCurrentLoading ? (
+                          <Loader2 className="w-4 h-4 text-accent animate-spin" />
+                        ) : isCurrent && !isPlaying ? (
+                          <Pause className="w-4 h-4 text-accent" fill="currentColor" />
+                        ) : (
+                          <Play className="w-4 h-4 text-text-primary" fill="currentColor" />
+                        )}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Title + Artist */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-bg-hover">
-                    {coverUrl ? (
-                      <Image
-                        src={coverUrl}
-                        alt={`${song.title} cover`}
-                        fill
-                        className="object-cover"
-                        sizes="40px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
-                        <Music2 className="w-4 h-4 text-text-muted" />
-                      </div>
-                    )}
+                  <div className="shrink-0">
+                    <PremiumCover
+                      src={coverUrl}
+                      alt={`${song.title} cover`}
+                      size="xs"
+                      rounded="sm"
+                      sizes="40px"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p

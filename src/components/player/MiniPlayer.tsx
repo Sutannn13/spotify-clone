@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { usePlayerStore } from "@/store/playerStore";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
-import { Music2 } from "lucide-react";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { LikeButton } from "@/components/music/LikeButton";
 
 export function MiniPlayer() {
@@ -62,20 +61,15 @@ export function MiniPlayer() {
       </div>
 
       {/* Cover */}
-      <div className="relative w-11 h-11 rounded-md overflow-hidden shrink-0 bg-bg-hover">
-        {coverUrl ? (
-          <Image
-            src={coverUrl}
-            alt={`${currentSong.title} cover`}
-            fill
-            className="object-cover"
-            sizes="44px"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
-            <Music2 className="w-4 h-4 text-text-muted" />
-          </div>
-        )}
+      <div className="shrink-0">
+        <PremiumCover
+          src={coverUrl}
+          alt={`${currentSong.title} cover`}
+          size="sm"
+          rounded="md"
+          playing={isPlaying}
+          sizes="44px"
+        />
       </div>
 
       {/* Title / Artist */}

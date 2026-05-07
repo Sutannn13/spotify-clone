@@ -9,6 +9,17 @@ import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import { motion } from "framer-motion";
 import type { Song } from "@/data/songs.types";
 import { useMemo } from "react";
+import { Sparkles } from "lucide-react";
+
+/** IDs of recently added static songs, newest first */
+const NEWLY_ADDED_IDS = [
+  "static-ariana-grande-bye",
+  "static-rex-orange-county-happiness",
+  "static-yad-english",
+  "static-meduza-lose-control",
+  "static-moth-to-a-flame",
+  "static-tante-culik-aku-dong",
+];
 
 export default function HomePage() {
   const { allSongs, isLoading, getCoverUrl } = useSongLibrary();
@@ -16,6 +27,14 @@ export default function HomePage() {
   const getCover = useMemo(
     () => (song: Song) => getCoverUrl(song),
     [getCoverUrl]
+  );
+
+  const newlyAdded = useMemo(
+    () =>
+      NEWLY_ADDED_IDS
+        .map((id) => allSongs.find((s) => s.id === id))
+        .filter(Boolean) as Song[],
+    [allSongs]
   );
 
   if (isLoading) {
@@ -44,6 +63,31 @@ export default function HomePage() {
       <div className="min-h-screen">
         {/* Hero */}
         <HeroSection featuredSong={featuredSong} getCover={getCover} />
+
+        {/* Newly Added section */}
+        {newlyAdded.length > 0 && (
+          <section className="px-4 md:px-8 py-6">
+            <div className="flex items-center gap-2 mb-5">
+              <Sparkles className="w-4 h-4 text-accent" />
+              <h2 className="text-lg font-semibold text-text-primary tracking-tight">
+                Newly Added
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+              {newlyAdded.map((song, i) => (
+                <motion.div
+                  key={song.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08, duration: 0.3 }}
+                >
+                  <SongCard song={song} getCover={getCover} />
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Song grid */}
         {gridSongs.length > 0 && (

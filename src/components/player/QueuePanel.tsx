@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { Play, Pause, Loader2, Clock, Music2, Trash2, ChevronUp, ChevronDown, ListMusic } from "lucide-react";
+import { Play, Pause, Loader2, Trash2, ChevronUp, ChevronDown, ListMusic } from "lucide-react";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { usePlayerStore } from "@/store/playerStore";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
@@ -167,22 +167,16 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
 
                 {/* Cover */}
                 <div
-                  className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-bg-hover cursor-pointer"
+                  className="shrink-0 cursor-pointer"
                   onClick={() => handlePlay(song)}
                 >
-                  {coverUrl ? (
-                    <Image
-                      src={coverUrl}
-                      alt={song.title}
-                      fill
-                      className="object-cover"
-                      sizes="44px"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Music2 className="w-4 h-4 text-text-muted" />
-                    </div>
-                  )}
+                  <PremiumCover
+                    src={coverUrl}
+                    alt={song.title}
+                    size="sm"
+                    rounded="lg"
+                    sizes="44px"
+                  />
                 </div>
 
                 {/* Info */}

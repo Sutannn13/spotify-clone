@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
@@ -11,6 +10,7 @@ import { LikeButton } from "@/components/music/LikeButton";
 import { LyricsPanel } from "@/components/music/LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
 import { SongDetailsPanel } from "./SongDetailsPanel";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import {
   X,
   ChevronLeft,
@@ -49,9 +49,16 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
   const playbackError = usePlayerStore((s) => s.playbackError);
 
   const [activeSlide, setActiveSlide] = useState<SlideId>("cover");
+  const [slideDirection, setSlideDirection] = useState(0);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   const slideIndex = SLIDES.findIndex((s) => s.id === activeSlide);
+
+  const goToSlide = (id: SlideId) => {
+    const newIndex = SLIDES.findIndex((s) => s.id === id);
+    setSlideDirection(newIndex > slideIndex ? 1 : -1);
+    setActiveSlide(id);
+  };
 
   if (!isFullscreen || !currentSong) return null;
 
@@ -102,7 +109,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
             {SLIDES.map((slide) => (
               <button
                 key={slide.id}
-                onClick={() => setActiveSlide(slide.id)}
+                onClick={() => goToSlide(slide.id)}
                 className={clsx(
                   "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
                   activeSlide === slide.id
@@ -130,87 +137,71 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
           <div className="w-9" />
         </div>
 
-        {/* Swipeable content */}
+        {/* Slide content with subtle fade + x transition */}
         <div className="flex-1 overflow-hidden relative flex flex-col" ref={constraintsRef}>
-          {/* Slides container */}
-          <div className="flex-1 flex overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              className="flex w-full shrink-0"
-              animate={{ x: `-${slideIndex * 100}%` }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              key={activeSlide}
+              initial={{ opacity: 0, x: slideDirection * 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: slideDirection * -40 }}
+              transition={{ duration: 0.25, ease: [0.33, 1, 0.68, 1] }}
+              className="flex-1 flex flex-col overflow-hidden"
             >
-              {/* Slide 1: Cover */}
-              <div className="w-full shrink-0 flex flex-col items-center justify-center px-6 sm:px-8 py-6 sm:py-8 gap-5 sm:gap-6 overflow-hidden">
-                <motion.div
-                  className={clsx(
-                    "relative w-full max-w-[280px] sm:max-w-xs aspect-square rounded-2xl overflow-hidden shadow-2xl shadow-black/50 bg-bg-hover",
-                    isPlaying && "animate-subtle-pulse"
-                  )}
-                  style={{
-                    boxShadow: isPlaying
-                      ? "0 0 40px rgba(225, 29, 72, 0.08), 0 0 80px rgba(0,0,0,0.5)"
-                      : "0 0 0 rgba(0,0,0,0)",
-                  }}
-                >
-                  {coverUrl ? (
-                    <Image
-                      src={coverUrl}
-                      alt={`${currentSong.title} cover`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 85vw, 320px"
-                      priority
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-bg-active">
-                      <Music2 className="w-16 h-16 text-text-muted" />
+              {activeSlide === "cover" && (
+                <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-8 py-6 sm:py-8 gap-5 sm:gap-6 overflow-hidden">
+                  {/* Premium album cover with vinyl disc */}
+                  <PremiumCover
+                    src={coverUrl}
+                    alt={`${currentSong.title} cover`}
+                    size="xl"
+                    rounded="2xl"
+                    playing={isPlaying}
+                    showDisc
+                    tilt
+                    priority
+                    sizes="(max-width: 640px) 85vw, 320px"
+                  />
+
+                  <div className="w-full text-center space-y-1">
+                    <div className="flex items-center justify-center gap-2">
+                      <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
+                        {currentSong.title}
+                      </h2>
+                      <LikeButton songId={currentSong.id} size="md" />
                     </div>
-                  )}
-                </motion.div>
-
-                <div className="w-full text-center space-y-1">
-                  <div className="flex items-center justify-center gap-2">
-                    <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
-                      {currentSong.title}
-                    </h2>
-                    <LikeButton songId={currentSong.id} size="md" />
-                  </div>
-                  <p className="text-sm text-text-secondary truncate">
-                    {currentSong.artist}
-                  </p>
-                  {currentSong.album && (
-                    <p className="text-xs text-text-muted truncate">
-                      {currentSong.album}
+                    <p className="text-sm text-text-secondary truncate">
+                      {currentSong.artist}
                     </p>
-                  )}
-                  {playbackError && (
-                    <p className="text-xs text-red-400 mt-1">{playbackError}</p>
-                  )}
+                    {currentSong.album && (
+                      <p className="text-xs text-text-muted truncate">
+                        {currentSong.album}
+                      </p>
+                    )}
+                    {playbackError && (
+                      <p className="text-xs text-red-400 mt-1">{playbackError}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Slide 2: Lyrics */}
-              <div className="w-full shrink-0 flex flex-col overflow-hidden">
-                <LyricsPanel />
-              </div>
+              {activeSlide === "lyrics" && <LyricsPanel />}
 
-              {/* Slide 3: Queue */}
-              <div className="w-full shrink-0 flex flex-col overflow-hidden">
+              {activeSlide === "queue" && (
                 <QueuePanel songs={songs} coverResolver={coverResolver} />
-              </div>
+              )}
 
-              {/* Slide 4: Details */}
-              <div className="w-full shrink-0 flex flex-col overflow-hidden">
+              {activeSlide === "details" && (
                 <SongDetailsPanel song={currentSong} coverResolver={coverResolver} />
-              </div>
+              )}
             </motion.div>
-          </div>
+          </AnimatePresence>
 
           {/* Arrow navigation (desktop) */}
           {slideIndex > 0 && (
             <button
               type="button"
-              onClick={() => setActiveSlide(SLIDES[slideIndex - 1].id)}
+              onClick={() => goToSlide(SLIDES[slideIndex - 1].id)}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
               aria-label="Previous slide"
             >
@@ -220,7 +211,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
           {slideIndex < SLIDES.length - 1 && (
             <button
               type="button"
-              onClick={() => setActiveSlide(SLIDES[slideIndex + 1].id)}
+              onClick={() => goToSlide(SLIDES[slideIndex + 1].id)}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
               aria-label="Next slide"
             >

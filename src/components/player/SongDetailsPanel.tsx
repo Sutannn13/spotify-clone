@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import { Clock, Disc, Tag, Zap, Moon, Sun, Heart, Music2 } from "lucide-react";
+import { Clock, Disc, Zap, Moon, Sun, Heart } from "lucide-react";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 
@@ -77,21 +77,14 @@ export function SongDetailsPanel({ song, coverResolver }: SongDetailsPanelProps)
       <div className="flex flex-col gap-8">
         {/* Cover + title block */}
         <div className="flex flex-col items-center text-center gap-4">
-          <div className="relative w-40 h-40 rounded-2xl overflow-hidden shadow-xl shadow-black/40 bg-bg-hover">
-            {coverUrl ? (
-              <Image
-                src={coverUrl}
-                alt={song.title}
-                fill
-                className="object-cover"
-                sizes="160px"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-bg-active">
-                <Music2 className="w-12 h-12 text-text-muted" />
-              </div>
-            )}
-          </div>
+          <PremiumCover
+            src={coverUrl}
+            alt={song.title}
+            size="lg"
+            rounded="2xl"
+            sizes="160px"
+            className="w-40 h-40"
+          />
 
           <div>
             <h2 className="text-xl font-semibold text-text-primary tracking-tight">

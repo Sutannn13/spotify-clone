@@ -1,14 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
 import { VolumeControl } from "./VolumeControl";
 import { LikeButton } from "@/components/music/LikeButton";
+import { PremiumCover } from "@/components/ui/PremiumCover";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { useState, useEffect } from "react";
-import { Music2 } from "lucide-react";
 
 export function Player() {
   const currentSong = usePlayerStore((s) => {
@@ -18,6 +17,7 @@ export function Player() {
   });
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
   const playbackError = usePlayerStore((s) => s.playbackError);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const [coverUrl, setCoverUrl] = useState("");
 
   useEffect(() => {
@@ -47,21 +47,14 @@ export function Player() {
           }}
           aria-label="Open full player"
         >
-          <div className="relative w-12 h-12 rounded-md overflow-hidden shrink-0 bg-bg-hover">
-            {coverUrl ? (
-              <Image
-                src={coverUrl}
-                alt={`${currentSong.title} cover`}
-                fill
-                className="object-cover"
-                sizes="48px"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
-                <Music2 className="w-4 h-4 text-text-muted" />
-              </div>
-            )}
-          </div>
+          <PremiumCover
+            src={coverUrl}
+            alt={`${currentSong.title} cover`}
+            size="md"
+            rounded="md"
+            playing={isPlaying}
+            sizes="48px"
+          />
           <div className="min-w-0">
             <p className="text-sm font-medium text-text-primary truncate leading-tight">
               {currentSong.title}

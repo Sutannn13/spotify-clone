@@ -2,7 +2,5 @@
   "/page": "app/page.js",
   "/search/page": "app/search/page.js",
   "/library/page": "app/library/page.js",
-  "/made-for-you/page": "app/made-for-you/page.js",
-  "/recently-played/page": "app/recently-played/page.js",
   "/liked/page": "app/liked/page.js"
 }
