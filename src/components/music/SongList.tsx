@@ -1,0 +1,157 @@
+"use client";
+
+import Image from "next/image";
+import { Play, Pause, Loader2, MoreHorizontal, Clock } from "lucide-react";
+import { usePlayerStore } from "@/store/playerStore";
+import type { Song } from "@/data/songs";
+import { clsx } from "clsx";
+import { motion } from "framer-motion";
+import { songs as allSongs } from "@/data/songs";
+
+interface SongListProps {
+  songs: Song[];
+}
+
+function formatDuration(seconds: number): string {
+  if (!seconds) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export function SongList({ songs }: SongListProps) {
+  const currentSong = usePlayerStore((s) => {
+    const playlist = s.playlist;
+    const idx = s.currentIndex;
+    return idx >= 0 ? playlist[idx] : null;
+  });
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const isLoading = usePlayerStore((s) => s.isLoading);
+  const playSong = usePlayerStore((s) => s.playSong);
+  const toggle = usePlayerStore((s) => s.toggle);
+
+  const handlePlay = (song: Song) => {
+    if (currentSong?.id === song.id) {
+      toggle();
+    } else {
+      playSong(song, songs);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      {/* Table header */}
+      <div className="grid grid-cols-[auto_1fr_1fr_auto] md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-3 px-4 py-2 text-xs text-text-muted border-b border-border mb-2">
+        <span className="w-8 text-center">#</span>
+        <span>Title</span>
+        <span className="hidden md:block">Album</span>
+        <span className="hidden sm:block">Duration</span>
+        <span className="w-10" />
+      </div>
+
+      {/* Songs */}
+      <div className="flex flex-col">
+        {songs.map((song, i) => {
+          const isCurrent = currentSong?.id === song.id;
+          const isCurrentLoading = isCurrent && isLoading;
+          const isCurrentPlaying = isCurrent && isPlaying;
+
+          return (
+            <motion.div
+              key={song.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03, duration: 0.2 }}
+            >
+              <div
+                className={clsx(
+                  "group grid grid-cols-[auto_1fr_1fr_auto] md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-3 px-4 py-3 rounded-lg items-center transition-colors duration-150 cursor-pointer",
+                  isCurrent
+                    ? "bg-bg-active"
+                    : "hover:bg-bg-hover"
+                )}
+                onClick={() => handlePlay(song)}
+              >
+                {/* Number / Playing indicator */}
+                <div className="w-8 flex items-center justify-center shrink-0">
+                  <span
+                    className={clsx(
+                      "text-sm tabular-nums transition-opacity",
+                      isCurrent ? "hidden" : "group-hover:hidden text-text-muted"
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <button
+                    className={clsx(
+                      "hidden transition-opacity",
+                      isCurrent ? "block" : "group-hover:block"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlay(song);
+                    }}
+                    aria-label={isCurrentPlaying ? "Pause" : "Play"}
+                  >
+                    {isCurrentLoading ? (
+                      <Loader2 className="w-4 h-4 text-accent animate-spin" />
+                    ) : isCurrentPlaying ? (
+                      <Pause className="w-4 h-4 text-accent" fill="currentColor" />
+                    ) : (
+                      <Play className="w-4 h-4 text-text-primary" fill="currentColor" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Title + Artist */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-bg-hover">
+                    <Image
+                      src={song.coverUrl}
+                      alt={song.title}
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className={clsx(
+                        "text-sm font-medium truncate",
+                        isCurrent ? "text-accent" : "text-text-primary"
+                      )}
+                    >
+                      {song.title}
+                    </p>
+                    <p className="text-xs text-text-secondary truncate">
+                      {song.artist}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Album (desktop) */}
+                <span className="hidden md:block text-sm text-text-secondary truncate">
+                  {song.album}
+                </span>
+
+                {/* Duration */}
+                <span className="hidden sm:block text-sm text-text-muted tabular-nums">
+                  {formatDuration(song.duration ?? 0)}
+                </span>
+
+                {/* More button */}
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="More options"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
