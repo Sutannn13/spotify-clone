@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Song } from "@/data/songs";
+import type { Song } from "@/data/songs.types";
+import type { LyricsType } from "@/data/songs.types";
 
 export type RepeatMode = "none" | "one" | "all";
 
@@ -15,9 +16,12 @@ interface PlayerState {
   isShuffled: boolean;
   isFullscreen: boolean;
   isLoading: boolean;
+  resolvedUrls: Map<string, { audioUrl: string; coverUrl: string }>;
 }
 
 interface PlayerActions {
+  setPlaylist: (songs: Song[]) => void;
+  setResolvedUrls: (urls: Map<string, { audioUrl: string; coverUrl: string }>) => void;
   playSong: (song: Song, playlist?: Song[]) => void;
   play: () => void;
   pause: () => void;
@@ -34,6 +38,7 @@ interface PlayerActions {
   setDuration: (duration: number) => void;
   setLoading: (loading: boolean) => void;
   onSongEnd: () => void;
+  getCurrentSong: () => Song | null;
 }
 
 type PlayerStore = PlayerState & PlayerActions;
@@ -50,6 +55,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isShuffled: false,
   isFullscreen: false,
   isLoading: false,
+  resolvedUrls: new Map(),
+
+  setPlaylist: (songs) => set({ playlist: songs }),
+
+  setResolvedUrls: (urls) => set({ resolvedUrls: urls }),
 
   playSong: (song, playlist) => {
     const list = playlist ?? get().playlist;
@@ -162,6 +172,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     } else {
       get().next();
     }
+  },
+
+  getCurrentSong: () => {
+    const { playlist, currentIndex } = get();
+    return currentIndex >= 0 ? playlist[currentIndex] : null;
   },
 }));
 

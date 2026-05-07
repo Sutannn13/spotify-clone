@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Library, Search, Music } from "lucide-react";
+import { Home, Library, Search, Music, PlusSquare } from "lucide-react";
 import { clsx } from "clsx";
 
 const navItems = [
@@ -12,7 +12,11 @@ const navItems = [
   { href: "/search", label: "Search", icon: Search },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onAddSong: () => void;
+}
+
+export function Sidebar({ onAddSong }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -36,7 +40,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 relative",
                 isActive
                   ? "bg-bg-hover text-text-primary"
                   : "text-text-secondary hover:text-text-primary hover:bg-bg-hover"
@@ -56,18 +60,31 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* Add Song button */}
+      <div className="px-3 mt-4">
+        <button
+          type="button"
+          onClick={onAddSong}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        >
+          <PlusSquare className="w-4 h-4 shrink-0" />
+          Add Song
+        </button>
+      </div>
+
       {/* Library section */}
       <div className="mt-6 px-6">
         <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-          Your Library
+          Quick Access
         </p>
       </div>
 
       <div className="flex flex-col gap-1 px-3 mt-3">
         {["Made for You", "Recently Played", "Liked Songs"].map((item) => (
           <button
+            type="button"
             key={item}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors duration-150 text-left"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors text-left"
           >
             <div className="w-4 h-4 rounded bg-bg-hover" />
             <span>{item}</span>

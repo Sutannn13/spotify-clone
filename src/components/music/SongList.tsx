@@ -1,15 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { Play, Pause, Loader2, MoreHorizontal, Clock } from "lucide-react";
+import { Play, Pause, Loader2, MoreHorizontal, Clock, Music2, Trash2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
-import type { Song } from "@/data/songs";
+import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
-import { songs as allSongs } from "@/data/songs";
 
 interface SongListProps {
   songs: Song[];
+  getCover: (song: Song) => string;
+  onDeleteSong?: (song: Song) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -19,7 +20,7 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function SongList({ songs }: SongListProps) {
+export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
@@ -36,6 +37,11 @@ export function SongList({ songs }: SongListProps) {
     } else {
       playSong(song, songs);
     }
+  };
+
+  const handleDelete = (e: React.MouseEvent, song: Song) => {
+    e.stopPropagation();
+    onDeleteSong?.(song);
   };
 
   return (
@@ -55,6 +61,7 @@ export function SongList({ songs }: SongListProps) {
           const isCurrent = currentSong?.id === song.id;
           const isCurrentLoading = isCurrent && isLoading;
           const isCurrentPlaying = isCurrent && isPlaying;
+          const coverUrl = getCover(song);
 
           return (
             <motion.div
@@ -66,9 +73,7 @@ export function SongList({ songs }: SongListProps) {
               <div
                 className={clsx(
                   "group grid grid-cols-[auto_1fr_1fr_auto] md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-3 px-4 py-3 rounded-lg items-center transition-colors duration-150 cursor-pointer",
-                  isCurrent
-                    ? "bg-bg-active"
-                    : "hover:bg-bg-hover"
+                  isCurrent ? "bg-bg-active" : "hover:bg-bg-hover"
                 )}
                 onClick={() => handlePlay(song)}
               >
@@ -83,6 +88,7 @@ export function SongList({ songs }: SongListProps) {
                     {i + 1}
                   </span>
                   <button
+                    type="button"
                     className={clsx(
                       "hidden transition-opacity",
                       isCurrent ? "block" : "group-hover:block"
@@ -106,13 +112,19 @@ export function SongList({ songs }: SongListProps) {
                 {/* Title + Artist */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-bg-hover">
-                    <Image
-                      src={song.coverUrl}
-                      alt={song.title}
-                      fill
-                      className="object-cover"
-                      sizes="40px"
-                    />
+                    {coverUrl ? (
+                      <Image
+                        src={coverUrl}
+                        alt={song.title}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
+                        <Music2 className="w-4 h-4 text-text-muted" />
+                      </div>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p
@@ -131,22 +143,36 @@ export function SongList({ songs }: SongListProps) {
 
                 {/* Album (desktop) */}
                 <span className="hidden md:block text-sm text-text-secondary truncate">
-                  {song.album}
+                  {song.album || "Unknown Album"}
                 </span>
 
                 {/* Duration */}
                 <span className="hidden sm:block text-sm text-text-muted tabular-nums">
-                  {formatDuration(song.duration ?? 0)}
+                  {formatDuration(song.duration)}
                 </span>
 
-                {/* More button */}
-                <button
-                  className="w-10 h-10 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="More options"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
+                {/* Actions */}
+                <div className="w-10 flex items-center justify-center gap-1">
+                  {/* Delete (local songs only) */}
+                  {song.source === "local" && onDeleteSong ? (
+                    <button
+                      type="button"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
+                      onClick={(e) => handleDelete(e, song)}
+                      aria-label="Delete song"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="More options"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           );

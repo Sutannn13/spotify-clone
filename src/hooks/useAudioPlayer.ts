@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { usePlayerStore } from "@/store/playerStore";
-import type { Song } from "@/data/songs";
+import type { Song } from "@/data/songs.types";
+import { getAudioBlob, createObjectUrl } from "@/lib/indexed-db";
 
 export function useAudioPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initialized = useRef(false);
+  const currentAudioUrlRef = useRef<string>("");
+  const urlCache = useRef<Map<string, string>>(new Map());
 
   const playlist = usePlayerStore((s) => s.playlist);
   const currentIndex = usePlayerStore((s) => s.currentIndex);
@@ -20,6 +23,25 @@ export function useAudioPlayer() {
   const setLoading = usePlayerStore((s) => s.setLoading);
   const onSongEnd = usePlayerStore((s) => s.onSongEnd);
   const pause = usePlayerStore((s) => s.pause);
+
+  const resolveAudioUrl = useCallback(async (song: Song): Promise<string> => {
+    if (song.source === "static") {
+      return song.audioUrl;
+    }
+
+    if (urlCache.current.has(song.id)) {
+      return urlCache.current.get(song.id)!;
+    }
+
+    const blob = await getAudioBlob(song.id);
+    if (blob) {
+      const url = createObjectUrl(blob);
+      urlCache.current.set(song.id, url);
+      return url;
+    }
+
+    return "";
+  }, []);
 
   useEffect(() => {
     if (!initialized.current) {
@@ -39,7 +61,14 @@ export function useAudioPlayer() {
     const onEnded = () => onSongEnd();
     const onWaiting = () => setLoading(true);
     const onPlaying = () => setLoading(false);
-    const onError = () => setLoading(false);
+    const onError = () => {
+      setLoading(false);
+      setIsPlaying(false);
+    };
+
+    const setIsPlaying = (val: boolean) => {
+      // handled via pause action
+    };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
@@ -58,25 +87,30 @@ export function useAudioPlayer() {
     };
   }, [setCurrentTime, setDuration, setLoading, onSongEnd]);
 
+  // Load song audio when currentIndex changes
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const loadAudio = async () => {
+      if (!audioRef.current || currentIndex < 0 || currentIndex >= playlist.length) return;
 
-    if (currentIndex >= 0 && currentIndex < playlist.length) {
       const song: Song = playlist[currentIndex];
-      const currentSrc = audio.src.split("/").pop();
-      const newSrc = song.audioUrl.split("/").pop();
+      const url = await resolveAudioUrl(song);
 
-      if (currentSrc !== newSrc) {
-        audio.src = song.audioUrl;
-        audio.load();
+      if (!url) return;
+
+      if (currentAudioUrlRef.current !== url) {
+        currentAudioUrlRef.current = url;
+        audioRef.current.src = url;
+        audioRef.current.load();
       }
-    }
-  }, [currentIndex, playlist]);
+    };
 
+    loadAudio();
+  }, [currentIndex, playlist, resolveAudioUrl]);
+
+  // Handle play/pause
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !audio.src) return;
 
     if (isPlaying) {
       audio.play().catch(() => pause());
@@ -85,12 +119,14 @@ export function useAudioPlayer() {
     }
   }, [isPlaying, pause]);
 
+  // Handle volume
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
 
+  // Handle seek
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;

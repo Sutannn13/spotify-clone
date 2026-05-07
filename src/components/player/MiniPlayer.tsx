@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
+import { useState, useEffect } from "react";
+import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
+import { Music2 } from "lucide-react";
 
 export function MiniPlayer() {
   const currentSong = usePlayerStore((s) => {
@@ -18,6 +21,18 @@ export function MiniPlayer() {
   const setFullscreen = usePlayerStore((s) => s.setFullscreen);
   const duration = usePlayerStore((s) => s.duration);
   const currentTime = usePlayerStore((s) => s.currentTime);
+  const [coverUrl, setCoverUrl] = useState("");
+
+  useEffect(() => {
+    if (!currentSong) { setCoverUrl(""); return; }
+    if (currentSong.source === "static") {
+      setCoverUrl(currentSong.coverUrl);
+    } else {
+      getCoverBlob(currentSong.id).then((blob) => {
+        setCoverUrl(blob ? createObjectUrl(blob) : "");
+      });
+    }
+  }, [currentSong]);
 
   if (!currentSong) return null;
 
@@ -25,18 +40,25 @@ export function MiniPlayer() {
 
   return (
     <button
+      type="button"
       onClick={() => setFullscreen(true)}
       className="w-full glass border-t border-border px-4 py-3 flex items-center gap-3 text-left active:bg-bg-hover transition-colors"
     >
       {/* Cover */}
       <div className="relative w-11 h-11 rounded-md overflow-hidden shrink-0 bg-bg-hover">
-        <Image
-          src={currentSong.coverUrl}
-          alt={currentSong.title}
-          fill
-          className="object-cover"
-          sizes="44px"
-        />
+        {coverUrl ? (
+          <Image
+            src={coverUrl}
+            alt={currentSong.title}
+            fill
+            className="object-cover"
+            sizes="44px"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-bg-elevated">
+            <Music2 className="w-4 h-4 text-text-muted" />
+          </div>
+        )}
       </div>
 
       {/* Title / Artist */}
@@ -51,11 +73,12 @@ export function MiniPlayer() {
 
       {/* Play/Pause */}
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           toggle();
         }}
-        className="w-11 h-11 flex items-center justify-center rounded-full text-text-primary shrink-0"
+        className="w-11 h-11 flex items-center justify-center rounded-full text-text-primary shrink-0 active:scale-95 transition-transform"
         aria-label={isPlaying ? "Pause" : "Play"}
       >
         {isLoading ? (
@@ -67,10 +90,10 @@ export function MiniPlayer() {
         )}
       </button>
 
-      {/* Progress bar at top of bar */}
+      {/* Progress bar */}
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-border/40">
         <div
-          className="h-full bg-text-primary rounded-r-full transition-all"
+          className="h-full bg-text-primary rounded-r-full transition-all player-progress"
           style={{ width: `${progress}%` }}
         />
       </div>
