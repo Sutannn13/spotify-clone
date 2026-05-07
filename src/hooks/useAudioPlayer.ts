@@ -11,6 +11,7 @@ import { getAudioBlob } from "@/lib/indexed-db";
  */
 let globalAudio: HTMLAudioElement | null = null;
 let listenersAttached = false;
+let pendingPlayOnCanPlay = false;
 
 /** Cache blob object URLs by song id to avoid recreating them. */
 const blobUrlCache = new Map<string, string>();
@@ -19,8 +20,6 @@ function getAudio(): HTMLAudioElement {
   if (!globalAudio) {
     globalAudio = new Audio();
     globalAudio.preload = "metadata";
-    // Do NOT set crossOrigin unless actually needed -- it causes CORS issues
-    // with local blob URLs and file:// sources.
   }
   return globalAudio;
 }
@@ -42,6 +41,14 @@ function attachListeners(audio: HTMLAudioElement) {
 
   const onCanPlay = () => {
     store.getState().setLoading(false);
+    // If we need to play, do it when audio is ready
+    if (pendingPlayOnCanPlay) {
+      pendingPlayOnCanPlay = false;
+      audio.play().catch(() => {
+        store.getState().pause();
+        store.getState().setPlaybackError("Could not start playback");
+      });
+    }
   };
 
   const onPlaying = () => {
@@ -53,14 +60,15 @@ function attachListeners(audio: HTMLAudioElement) {
     store.getState().setLoading(true);
   };
 
-  const onEnded = () => store.getState().onSongEnd();
+  const onEnded = () => {
+    store.getState().onSongEnd();
+  };
 
   const onError = () => {
     const state = store.getState();
     state.setLoading(false);
     state.pause();
 
-    // Try to produce a readable error message
     const err = audio.error;
     let message = "Playback error";
     if (err) {
@@ -94,9 +102,9 @@ function attachListeners(audio: HTMLAudioElement) {
 }
 
 export function useAudioPlayer() {
-  // Track the current song ID to avoid re-resolving the same blob URL
   const currentSongIdRef = useRef<string>("");
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirectlyPlayingRef = useRef<boolean>(false);
 
   const currentIndex = usePlayerStore((s) => s.currentIndex);
   const playlist = usePlayerStore((s) => s.playlist);
@@ -104,7 +112,6 @@ export function useAudioPlayer() {
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const currentTime = usePlayerStore((s) => s.currentTime);
-  const checkSleepTimer = usePlayerStore((s) => s.checkSleepTimer);
 
   // Attach browser audio events once
   useEffect(() => {
@@ -116,7 +123,6 @@ export function useAudioPlayer() {
   const resolveUrl = useCallback(async (song: Song): Promise<string> => {
     if (song.source === "static") return song.audioUrl;
 
-    // Check blob URL cache first
     if (blobUrlCache.has(song.id)) {
       return blobUrlCache.get(song.id)!;
     }
@@ -143,21 +149,20 @@ export function useAudioPlayer() {
       loadingTimeoutRef.current = null;
     }
 
-    // If same song is already loaded, do not reload
+    // If same song is already loaded, just ensure it plays if needed
     if (currentSongIdRef.current === song.id) {
-      // If isPlaying and audio has a valid src, just play
       const audio = getAudio();
       if (store.isPlaying && audio.src) {
-        // Handle repeat-one restart
-        if (store.currentTime === 0 && audio.currentTime > 0) {
+        // Seek to 0 if we need to restart
+        if (store.currentTime === 0 && audio.currentTime > 0.5) {
           audio.currentTime = 0;
         }
         audio.play().catch(() => {
-          usePlayerStore.getState().pause();
-          usePlayerStore.getState().setPlaybackError("Could not resume playback");
+          store.pause();
+          store.setPlaybackError("Could not resume playback");
         });
-        usePlayerStore.getState().setLoading(false);
       }
+      store.setLoading(false);
       return;
     }
 
@@ -185,11 +190,12 @@ export function useAudioPlayer() {
         }
       }, 8000);
 
-      // If store says isPlaying, start playback after src is assigned
-      if (usePlayerStore.getState().isPlaying) {
+      // If store says isPlaying, signal to play when ready
+      if (store.isPlaying) {
+        pendingPlayOnCanPlay = true;
+        // Attempt to play immediately too - might work on some browsers
         audio.play().catch(() => {
-          usePlayerStore.getState().pause();
-          usePlayerStore.getState().setPlaybackError("Could not start playback");
+          // Will be handled by canplay event
         });
       }
     };
@@ -204,18 +210,15 @@ export function useAudioPlayer() {
     };
   }, [currentIndex, playlist, resolveUrl]);
 
-  // Play / pause effect
+  // Play / pause effect -- only for pause, play is handled in load effect
   useEffect(() => {
     const audio = getAudio();
     if (!audio.src) return;
 
-    if (isPlaying) {
-      audio.play().catch(() => {
-        usePlayerStore.getState().pause();
-      });
-    } else {
+    if (!isPlaying) {
       audio.pause();
     }
+    // Play is handled in load effect via pendingPlayOnCanPlay
   }, [isPlaying]);
 
   // Volume

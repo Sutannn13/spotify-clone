@@ -15,12 +15,8 @@ import {
   getLocalSongs,
   saveLocalSong,
   deleteLocalSong,
-  getAudioBlob,
   getCoverBlob,
   createObjectUrl,
-  revokeObjectUrl,
-  openDB,
-  STORES,
 } from "@/lib/indexed-db";
 
 interface SongLibraryContextValue {
@@ -59,7 +55,10 @@ const SongLibraryContext = createContext<SongLibraryContextValue | null>(null);
 
 export function useSongLibrary(): SongLibraryContextValue {
   const ctx = useContext(SongLibraryContext);
-  if (!ctx) throw new Error("useSongLibrary must be used within SongLibraryProvider");
+  if (!ctx)
+    throw new Error(
+      "useSongLibrary must be used within SongLibraryProvider"
+    );
   return ctx;
 }
 
@@ -68,19 +67,12 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
   const [localSongs, setLocalSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const blobUrlCache = useRef<Map<string, string>>(new Map());
-  const coverCache = useRef<Map<string, string>>(new Map());
+  const coverUrlMap = useRef<Map<string, string>>(new Map());
+  const [coverMapVersion, setCoverMapVersion] = useState(0);
 
   const getCoverUrl = useCallback((song: Song): string => {
-    if (song.source === "static") {
-      return song.coverUrl;
-    }
-
-    if (coverCache.current.has(song.id)) {
-      return coverCache.current.get(song.id)!;
-    }
-
-    return "";
+    if (song.source === "static") return song.coverUrl;
+    return coverUrlMap.current.get(song.id) ?? "";
   }, []);
 
   const loadSongs = useCallback(async () => {
@@ -88,15 +80,13 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       const local = await getLocalSongs();
 
-      // Revoke old blob URLs for local songs
-      coverCache.current.forEach((url) => {
-        if (url.startsWith("blob:")) revokeObjectUrl(url);
-      });
-      blobUrlCache.current.forEach((url) => {
-        if (url.startsWith("blob:")) revokeObjectUrl(url);
-      });
-      coverCache.current.clear();
-      blobUrlCache.current.clear();
+      // Build cover URL map without creating object URLs until needed
+      for (const song of local) {
+        if (!coverUrlMap.current.has(song.id)) {
+          // Will be lazily resolved — placeholder
+          coverUrlMap.current.set(song.id, "");
+        }
+      }
 
       const merged: Song[] = [...local, ...staticSongs];
       setAllSongs(merged);
@@ -110,39 +100,24 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load cover blobs and cache URLs
-  const loadCoverBlob = useCallback(async (song: Song): Promise<string> => {
-    if (song.source === "static") return song.coverUrl;
-    if (coverCache.current.has(song.id)) return coverCache.current.get(song.id)!;
+  // Load songs once on mount — NOT on every prop change
+  useEffect(() => {
+    loadSongs();
+  }, [loadSongs]);
+
+  // Lazily load a single cover blob when getCoverUrl is first called for a local song
+  const loadCoverForSong = useCallback(async (song: Song) => {
+    if (song.source === "static") return;
+    if (coverUrlMap.current.has(song.id) && coverUrlMap.current.get(song.id) !== "") return;
 
     const blob = await getCoverBlob(song.id);
     if (blob) {
       const url = createObjectUrl(blob);
-      coverCache.current.set(song.id, url);
-      return url;
+      coverUrlMap.current.set(song.id, url);
+      // Trigger re-render of components using this song's cover
+      setCoverMapVersion((v) => v + 1);
     }
-    return "";
   }, []);
-
-  useEffect(() => {
-    loadSongs();
-    return () => {
-      blobUrlCache.current.forEach((url) => revokeObjectUrl(url));
-      coverCache.current.forEach((url) => revokeObjectUrl(url));
-    };
-  }, [loadSongs]);
-
-  // Preload cover URLs for visible songs
-  useEffect(() => {
-    const preload = async () => {
-      for (const song of allSongs) {
-        if (song.source === "local") {
-          loadCoverBlob(song).catch(() => {});
-        }
-      }
-    };
-    preload();
-  }, [allSongs, loadCoverBlob]);
 
   const addSong = useCallback(
     async (data: {
@@ -187,10 +162,10 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
 
       await saveLocalSong(song, audioBlob, coverBlob);
 
-      // Cache cover URL
+      // Pre-cache the cover blob URL so it's ready immediately
       if (coverBlob) {
-        const coverUrl = createObjectUrl(coverBlob);
-        coverCache.current.set(id, coverUrl);
+        const url = createObjectUrl(coverBlob);
+        coverUrlMap.current.set(id, url);
       }
 
       await loadSongs();
@@ -202,11 +177,9 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
   const removeSong = useCallback(
     async (songId: string) => {
       const song = localSongs.find((s) => s.id === songId);
-      if (!song) return;
-
-      blobUrlCache.current.delete(songId);
-      coverCache.current.delete(songId);
-
+      if (song) {
+        coverUrlMap.current.delete(songId);
+      }
       await deleteLocalSong(songId);
       await loadSongs();
     },
@@ -223,37 +196,25 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
       mood?: string;
       genre?: string;
     }) => {
-      const db = await openDB();
-      return new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORES.SONGS, "readwrite");
-        const store = tx.objectStore(STORES.SONGS);
-        const request = store.get(songId);
+      // Read existing local song from IndexedDB
+      const local = await getLocalSongs();
+      const existing = local.find((s) => s.id === songId);
+      if (!existing) return;
 
-        request.onsuccess = () => {
-          const song = request.result as Song;
-          if (!song) {
-            reject(new Error("Song not found"));
-            return;
-          }
-          const updatedSong: Song = {
-            ...song,
-            title: data.title,
-            artist: data.artist,
-            album: data.album,
-            lyrics: data.lyrics,
-            lyricsType: data.lyricsType,
-            mood: data.mood,
-            genre: data.genre,
-          };
-          store.put(updatedSong);
-          tx.oncomplete = () => {
-            loadSongs();
-            resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
-        request.onerror = () => reject(request.error);
-      });
+      const updated: Song = {
+        ...existing,
+        title: data.title,
+        artist: data.artist,
+        album: data.album,
+        lyrics: data.lyrics,
+        lyricsType: data.lyricsType,
+        mood: data.mood,
+        genre: data.genre,
+      };
+
+      // Save updated metadata (audio/cover blobs unchanged)
+      await saveLocalSong(updated);
+      await loadSongs();
     },
     [loadSongs]
   );
@@ -267,7 +228,14 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
     addSong,
     removeSong,
     updateSong,
-    getCoverUrl,
+    getCoverUrl: (song: Song) => {
+      const url = getCoverUrl(song);
+      // Trigger lazy load for local song covers
+      if (song.source === "local") {
+        loadCoverForSong(song);
+      }
+      return url;
+    },
     refresh: loadSongs,
   };
 

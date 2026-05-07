@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Play, Pause, Clock, Music2 } from "lucide-react";
+import { Play, Clock, Music2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { clsx } from "clsx";
 import type { Song } from "@/data/songs.types";
 
@@ -13,37 +14,20 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ featuredSong, getCover }: HeroSectionProps) {
-  const playSong = usePlayerStore((s) => s.playSong);
-  const play = usePlayerStore((s) => s.play);
-  const pause = usePlayerStore((s) => s.pause);
   const currentSong = usePlayerStore((s) => {
-    const playlist = s.playlist;
+    const pl = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
+    return idx >= 0 && idx < pl.length ? pl[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
   const playlist = usePlayerStore((s) => s.playlist);
 
+  const { playOrPause } = usePlaybackActions();
+
   const isCurrentSong = currentSong?.id === featuredSong.id;
   const isCurrentLoading = isCurrentSong && isLoading;
   const isCurrentPlaying = isCurrentSong && isPlaying && !isLoading;
-
-  /**
-   * Spotify-like hero button behavior:
-   * - If featured song is NOT the current song: play it
-   * - If featured song IS current and playing: pause
-   * - If featured song IS current and paused: resume
-   */
-  const handlePlay = () => {
-    if (!isCurrentSong) {
-      playSong(featuredSong, playlist.length > 0 ? playlist : [featuredSong]);
-    } else if (isPlaying) {
-      pause();
-    } else {
-      play();
-    }
-  };
 
   const coverUrl = getCover(featuredSong);
 
@@ -120,10 +104,9 @@ export function HeroSection({ featuredSong, getCover }: HeroSectionProps) {
           <div className="flex items-center justify-center sm:justify-start gap-3 mt-1 sm:mt-2">
             <button
               type="button"
-              onClick={handlePlay}
+              onClick={() => playOrPause(featuredSong, playlist.length > 0 ? playlist : [featuredSong])}
               className={clsx(
-                "flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all min-w-[120px] justify-center",
-                "min-h-[44px]", // Touch target
+                "flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all min-w-[120px] justify-center min-h-[44px]",
                 isCurrentSong
                   ? "bg-accent text-white"
                   : "bg-text-primary text-bg-base hover:scale-105 active:scale-95"
@@ -144,15 +127,10 @@ export function HeroSection({ featuredSong, getCover }: HeroSectionProps) {
                   <span className="w-0.5 h-3 bg-white rounded-full animate-eq-2" />
                   <span className="w-0.5 h-3 bg-white rounded-full animate-eq-3" />
                 </span>
-              ) : isCurrentSong && !isPlaying ? (
-                <>
-                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                  Resume
-                </>
               ) : (
                 <>
                   <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                  Play Now
+                  {isCurrentSong && !isPlaying ? "Resume" : "Play Now"}
                 </>
               )}
             </button>

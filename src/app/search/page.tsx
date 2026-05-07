@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SongList } from "@/components/music/SongList";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
-import { usePlayerStore } from "@/store/playerStore";
 import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Search, X, Music2 } from "lucide-react";
 import { clsx } from "clsx";
@@ -46,12 +45,23 @@ export default function SearchPage() {
     if (allSongs.length > 0) load();
   }, [allSongs]);
 
-  // Poll for liked song changes
+  // Listen for liked song changes (from other tabs or likes/unlikes)
   useEffect(() => {
     const loadLiked = () => setLikedIds(new Set(getLikedSongIds()));
     loadLiked();
-    const interval = setInterval(loadLiked, 2000);
-    return () => clearInterval(interval);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "aura-liked-songs") loadLiked();
+    };
+    window.addEventListener("storage", handleStorage);
+    // Custom event for same-tab like/unlike
+    const handleLikeChange = () => loadLiked();
+    window.addEventListener("aura-likes-changed", handleLikeChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("aura-likes-changed", handleLikeChange);
+    };
   }, []);
 
   const getCover = useCallback(

@@ -27,8 +27,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
   const playlist = usePlayerStore((s) => s.playlist);
 
-  const iconSize = size === "large" ? 28 : 18;
-  const btnSize = size === "large" ? 16 : 10;
+  const isLarge = size === "large";
 
   return (
     <div className="flex items-center gap-1">
@@ -42,10 +41,10 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             ? "text-accent"
             : "text-text-secondary hover:text-text-primary"
         )}
-        aria-label="Shuffle"
-        aria-pressed={isShuffled ? "true" : "false"}
+        aria-label="Toggle shuffle"
+        aria-pressed={isShuffled}
       >
-        <Shuffle className={clsx(iconSize < 20 && "w-4 h-4")} style={{ width: iconSize * 0.8, height: iconSize * 0.8 }} />
+        <Shuffle className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
       </button>
 
       {/* Prev */}
@@ -59,12 +58,9 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             ? "text-text-muted cursor-not-allowed"
             : "text-text-secondary hover:text-text-primary"
         )}
-        aria-label="Previous"
+        aria-label="Previous song"
       >
-        <SkipBack
-          className={clsx(iconSize < 20 && "w-4 h-4")}
-          style={{ width: iconSize * 0.8, height: iconSize * 0.8 }}
-        />
+        <SkipBack className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
       </button>
 
       {/* Play / Pause */}
@@ -73,8 +69,8 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
         onClick={toggle}
         disabled={playlist.length === 0}
         className={clsx(
-          "w-12 h-12 flex items-center justify-center rounded-full transition-all",
-          size === "large" ? "w-16 h-16" : "w-10 h-10",
+          "flex items-center justify-center rounded-full transition-all",
+          isLarge ? "w-16 h-16" : "w-10 h-10",
           playlist.length === 0
             ? "bg-text-muted/20 cursor-not-allowed"
             : "bg-text-primary hover:scale-105 active:scale-95"
@@ -85,7 +81,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
           <Loader2
             className={clsx(
               "text-bg-base animate-spin",
-              size === "large" ? "w-6 h-6" : "w-4 h-4"
+              isLarge ? "w-6 h-6" : "w-4 h-4"
             )}
           />
         ) : (
@@ -99,15 +95,16 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
               <Pause
                 className={clsx(
                   "text-bg-base",
-                  size === "large" ? "w-6 h-6" : "w-4 h-4"
+                  isLarge ? "w-6 h-6" : "w-4 h-4"
                 )}
               />
             ) : (
               <Play
                 className={clsx(
-                  "text-bg-base ml-0.5",
-                  size === "large" ? "w-6 h-6" : "w-4 h-4"
+                  "text-bg-base",
+                  isLarge ? "w-6 h-6" : "w-4 h-4"
                 )}
+                style={{ marginLeft: "2px" }}
                 fill="currentColor"
               />
             )}
@@ -126,15 +123,12 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             ? "text-text-muted cursor-not-allowed"
             : "text-text-secondary hover:text-text-primary"
         )}
-        aria-label="Next"
+        aria-label="Next song"
       >
-        <SkipForward
-          className={clsx(iconSize < 20 && "w-4 h-4")}
-          style={{ width: iconSize * 0.8, height: iconSize * 0.8 }}
-        />
+        <SkipForward className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
       </button>
 
-      {/* Repeat */}
+      {/* Repeat — use aria-label since repeat has 3 modes, not a binary toggle */}
       <button
         type="button"
         onClick={cycleRepeat}
@@ -145,18 +139,11 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
             : "text-text-secondary hover:text-text-primary"
         )}
         aria-label={`Repeat: ${repeatMode}`}
-        aria-pressed={repeatMode !== "none" ? "true" : "false"}
       >
         {repeatMode === "one" ? (
-          <Repeat1
-            className={clsx(iconSize < 20 && "w-4 h-4")}
-            style={{ width: iconSize * 0.8, height: iconSize * 0.8 }}
-          />
+          <Repeat1 className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
         ) : (
-          <Repeat
-            className={clsx(iconSize < 20 && "w-4 h-4")}
-            style={{ width: iconSize * 0.8, height: iconSize * 0.8 }}
-          />
+          <Repeat className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
         )}
         {repeatMode === "one" && (
           <span className="absolute text-[9px] font-semibold leading-none">

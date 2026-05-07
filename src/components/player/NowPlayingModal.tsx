@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
@@ -53,24 +53,6 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
 
   const slideIndex = SLIDES.findIndex((s) => s.id === activeSlide);
 
-  const goToSlide = useCallback((id: SlideId) => {
-    setActiveSlide(id);
-  }, []);
-
-  const goNext = useCallback(() => {
-    const idx = SLIDES.findIndex((s) => s.id === activeSlide);
-    if (idx < SLIDES.length - 1) {
-      setActiveSlide(SLIDES[idx + 1].id);
-    }
-  }, [activeSlide]);
-
-  const goPrev = useCallback(() => {
-    const idx = SLIDES.findIndex((s) => s.id === activeSlide);
-    if (idx > 0) {
-      setActiveSlide(SLIDES[idx - 1].id);
-    }
-  }, [activeSlide]);
-
   if (!isFullscreen || !currentSong) return null;
 
   const coverUrl = coverResolver(currentSong);
@@ -107,9 +89,10 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-border/50">
           <button
+            type="button"
             onClick={() => setFullscreen(false)}
             className="w-9 h-9 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-            aria-label="Close"
+            aria-label="Close full player"
           >
             <X className="w-5 h-5" />
           </button>
@@ -119,7 +102,7 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
             {SLIDES.map((slide) => (
               <button
                 key={slide.id}
-                onClick={() => goToSlide(slide.id)}
+                onClick={() => setActiveSlide(slide.id)}
                 className={clsx(
                   "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
                   activeSlide === slide.id
@@ -226,7 +209,8 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
           {/* Arrow navigation (desktop) */}
           {slideIndex > 0 && (
             <button
-              onClick={goPrev}
+              type="button"
+              onClick={() => setActiveSlide(SLIDES[slideIndex - 1].id)}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
               aria-label="Previous slide"
             >
@@ -235,7 +219,8 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
           )}
           {slideIndex < SLIDES.length - 1 && (
             <button
-              onClick={goNext}
+              type="button"
+              onClick={() => setActiveSlide(SLIDES[slideIndex + 1].id)}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 hidden lg:flex items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
               aria-label="Next slide"
             >

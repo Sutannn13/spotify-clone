@@ -31,10 +31,13 @@ export function toggleLikeSong(songId: string): boolean {
   if (index >= 0) {
     ids.splice(index, 1);
     localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(ids));
+    // Notify other tabs and same-tab components
+    window.dispatchEvent(new Event("aura-likes-changed"));
     return false; // unliked
   } else {
     ids.unshift(songId);
     localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(ids));
+    window.dispatchEvent(new Event("aura-likes-changed"));
     return true; // liked
   }
 }

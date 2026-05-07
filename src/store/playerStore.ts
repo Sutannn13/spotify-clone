@@ -2,7 +2,15 @@ import { create } from "zustand";
 import type { Song } from "@/data/songs.types";
 
 export type RepeatMode = "none" | "one" | "all";
-export type SleepTimerOption = "off" | "5" | "10" | "15" | "30" | "45" | "60" | "end-of-song";
+export type SleepTimerOption =
+  | "off"
+  | "5"
+  | "10"
+  | "15"
+  | "30"
+  | "45"
+  | "60"
+  | "end-of-song";
 
 interface PlayerState {
   playlist: Song[];
@@ -17,18 +25,15 @@ interface PlayerState {
   isFullscreen: boolean;
   isLoading: boolean;
   playbackError: string | null;
-  resolvedUrls: Map<string, { audioUrl: string; coverUrl: string }>;
-  // Queue management
+  // Queue
   queue: Song[];
   queuePosition: number;
   // Sleep timer
   sleepTimer: SleepTimerOption;
-  sleepTimerEndsAt: number | null; // timestamp when timer should fire
+  sleepTimerEndsAt: number | null;
 }
 
 interface PlayerActions {
-  setPlaylist: (songs: Song[]) => void;
-  setResolvedUrls: (urls: Map<string, { audioUrl: string; coverUrl: string }>) => void;
   playSong: (song: Song, playlist?: Song[]) => void;
   play: () => void;
   pause: () => void;
@@ -47,7 +52,8 @@ interface PlayerActions {
   setPlaybackError: (error: string | null) => void;
   onSongEnd: () => void;
   getCurrentSong: () => Song | null;
-  // Queue actions
+  setPlaylist: (songs: Song[]) => void;
+  // Queue
   setQueue: (songs: Song[], position?: number) => void;
   addToQueue: (song: Song) => void;
   removeFromQueue: (songId: string) => void;
@@ -60,6 +66,42 @@ interface PlayerActions {
 }
 
 type PlayerStore = PlayerState & PlayerActions;
+
+/** Returns the next index considering shuffle, repeatMode, and end-of-playlist. */
+function computeNextIndex(
+  playlist: Song[],
+  currentIndex: number,
+  repeatMode: RepeatMode,
+  isShuffled: boolean
+): number | null {
+  if (playlist.length === 0) return null;
+
+  // Repeat one: just restart this song (caller handles seek + play)
+  if (repeatMode === "one") return currentIndex;
+
+  let nextIndex: number;
+
+  if (isShuffled) {
+    const available = playlist
+      .map((_, i) => i)
+      .filter((i) => i !== currentIndex);
+    nextIndex =
+      available.length > 0
+        ? available[Math.floor(Math.random() * available.length)]
+        : currentIndex;
+  } else {
+    nextIndex = currentIndex + 1;
+    if (nextIndex >= playlist.length) {
+      if (repeatMode === "all") {
+        nextIndex = 0;
+      } else {
+        return null; // end of playlist, stop
+      }
+    }
+  }
+
+  return nextIndex;
+}
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   playlist: [],
@@ -74,7 +116,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isFullscreen: false,
   isLoading: false,
   playbackError: null,
-  resolvedUrls: new Map(),
   queue: [],
   queuePosition: -1,
   sleepTimer: "off",
@@ -82,21 +123,19 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   setPlaylist: (songs) => set({ playlist: songs }),
 
-  setResolvedUrls: (urls) => set({ resolvedUrls: urls }),
-
   /**
    * Play a specific song. Shuffle NEVER affects which song is played here.
-   * Shuffle only affects next(). The user-clicked song is always honored.
+   * Only next() respects shuffle.
    */
   playSong: (song, playlist) => {
     const state = get();
     const list = playlist ?? state.playlist;
     let index = list.findIndex((s) => s.id === song.id);
 
+    // Not found in given list — prepend to playlist
     if (index === -1 && list.length > 0) {
-      const newList = [song, ...list];
       set({
-        playlist: newList,
+        playlist: [song, ...list],
         currentIndex: 0,
         isPlaying: true,
         currentTime: 0,
@@ -107,7 +146,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
 
     if (index === -1) {
-      // No playlist, single song
       set({
         playlist: [song],
         currentIndex: 0,
@@ -119,9 +157,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return;
     }
 
-    // If same song is already current, do not reset
+    // Same song, same playlist — just resume
     if (state.currentIndex === index && state.playlist === list) {
-      // Same song: just resume
       set({ isPlaying: true, playbackError: null });
       return;
     }
@@ -138,49 +175,32 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   play: () => set({ isPlaying: true, playbackError: null }),
   pause: () => set({ isPlaying: false }),
-  toggle: () => set((state) => ({
-    isPlaying: !state.isPlaying,
-    playbackError: state.isPlaying ? state.playbackError : null,
-  })),
+  toggle: () =>
+    set((state) => ({
+      isPlaying: !state.isPlaying,
+      playbackError: state.isPlaying ? state.playbackError : null,
+    })),
 
   next: () => {
     const { playlist, currentIndex, repeatMode, isShuffled } = get();
-    if (playlist.length === 0) return;
+    const nextIdx = computeNextIndex(playlist, currentIndex, repeatMode, isShuffled);
 
-    if (repeatMode === "one") {
-      // Restart current song
-      set({ currentTime: 0, isLoading: true, playbackError: null });
+    if (nextIdx === null) {
+      // End of non-looping playlist
+      set({ isPlaying: false });
       return;
     }
 
-    let nextIndex: number;
-
-    if (isShuffled) {
-      // Pick random song that is not current
-      const available = playlist
-        .map((_, i) => i)
-        .filter((i) => i !== currentIndex);
-      if (available.length === 0) {
-        nextIndex = currentIndex;
-      } else {
-        nextIndex = available[Math.floor(Math.random() * available.length)];
-      }
-    } else {
-      nextIndex = currentIndex + 1;
-      if (nextIndex >= playlist.length) {
-        if (repeatMode === "all") {
-          nextIndex = 0;
-        } else {
-          // repeatMode "none" at end: stop
-          set({ isPlaying: false });
-          return;
-        }
-      }
+    // repeatMode === "one" means just restart (seek handled by audio hook)
+    if (repeatMode === "one") {
+      set({ currentTime: 0, isPlaying: true, isLoading: false, playbackError: null });
+      return;
     }
 
     set({
-      currentIndex: nextIndex,
+      currentIndex: nextIdx,
       currentTime: 0,
+      isPlaying: true,
       isLoading: true,
       playbackError: null,
     });
@@ -190,8 +210,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const { currentTime, currentIndex, playlist } = get();
     if (playlist.length === 0) return;
 
+    // Restart current song if more than 3s in
     if (currentTime > 3) {
-      // Restart current song
       set({ currentTime: 0, playbackError: null });
       return;
     }
@@ -201,6 +221,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({
       currentIndex: prevIndex,
       currentTime: 0,
+      isPlaying: true,
       isLoading: true,
       playbackError: null,
     });
@@ -208,7 +229,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   seek: (time) => set({ currentTime: time }),
 
-  setVolume: (vol) => set({ volume: Math.max(0, Math.min(1, vol)), isMuted: false }),
+  setVolume: (vol) =>
+    set({ volume: Math.max(0, Math.min(1, vol)), isMuted: false }),
 
   toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
 
@@ -224,25 +246,32 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   setFullscreen: (val) => set({ isFullscreen: val }),
 
   setCurrentTime: (time) => set({ currentTime: time }),
-
   setDuration: (duration) => set({ duration }),
-
   setLoading: (loading) => set({ isLoading: loading }),
-
   setPlaybackError: (error) => set({ playbackError: error }),
 
+  /**
+   * Called by the audio element's `ended` event.
+   * - Handles sleep-timer "end-of-song" once.
+   * - Handles repeat-one: seek to 0 and restart.
+   * - Otherwise calls next().
+   */
   onSongEnd: () => {
     const { repeatMode, sleepTimer, pause } = get();
+
     if (sleepTimer === "end-of-song") {
       pause();
       set({ sleepTimer: "off", sleepTimerEndsAt: null });
       return;
     }
+
     if (repeatMode === "one") {
-      set({ currentTime: 0 });
-    } else {
-      get().next();
+      // Seek to 0 and restart — isPlaying stays true so audio hook auto-plays
+      set({ currentTime: 0, isPlaying: true, isLoading: false, playbackError: null });
+      return;
     }
+
+    get().next();
   },
 
   getCurrentSong: () => {
@@ -252,43 +281,36 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       : null;
   },
 
-  // Queue actions
-  setQueue: (songs, position = -1) => {
-    set({ queue: songs, queuePosition: position });
-  },
+  // Queue
+  setQueue: (songs, position = -1) => set({ queue: songs, queuePosition: position }),
 
   addToQueue: (song) => {
-    const { queue } = get();
-    set({ queue: [...queue, song] });
+    set((state) => ({ queue: [...state.queue, song] }));
   },
 
   removeFromQueue: (songId) => {
-    const { queue, queuePosition } = get();
-    const idx = queue.findIndex((s) => s.id === songId);
-    if (idx === -1) return;
-    const newQueue = queue.filter((s) => s.id !== songId);
-    // Adjust queue position if needed
-    let newPos = queuePosition;
-    if (idx < queuePosition) {
-      newPos = Math.max(-1, queuePosition - 1);
-    } else if (idx === queuePosition) {
-      newPos = -1;
-    }
-    set({ queue: newQueue, queuePosition: newPos });
+    set((state) => {
+      const idx = state.queue.findIndex((s) => s.id === songId);
+      if (idx === -1) return {};
+      const newQueue = state.queue.filter((s) => s.id !== songId);
+      let newPos = state.queuePosition;
+      if (idx < state.queuePosition) newPos = Math.max(-1, state.queuePosition - 1);
+      else if (idx === state.queuePosition) newPos = -1;
+      return { queue: newQueue, queuePosition: newPos };
+    });
   },
 
-  clearQueue: () => {
-    set({ queue: [], queuePosition: -1 });
-  },
+  clearQueue: () => set({ queue: [], queuePosition: -1 }),
 
   moveQueueItem: (fromIndex, toIndex) => {
-    const { queue } = get();
-    if (fromIndex < 0 || fromIndex >= queue.length) return;
-    if (toIndex < 0 || toIndex >= queue.length) return;
-    const newQueue = [...queue];
-    const [item] = newQueue.splice(fromIndex, 1);
-    newQueue.splice(toIndex, 0, item);
-    set({ queue: newQueue });
+    set((state) => {
+      if (fromIndex < 0 || fromIndex >= state.queue.length) return {};
+      if (toIndex < 0 || toIndex >= state.queue.length) return {};
+      const newQueue = [...state.queue];
+      const [item] = newQueue.splice(fromIndex, 1);
+      newQueue.splice(toIndex, 0, item);
+      return { queue: newQueue };
+    });
   },
 
   // Sleep timer
@@ -299,21 +321,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       set({ sleepTimer: "end-of-song", sleepTimerEndsAt: null });
     } else {
       const minutes = parseInt(option, 10);
-      const now = Date.now();
-      set({ sleepTimer: option, sleepTimerEndsAt: now + minutes * 60 * 1000 });
+      set({ sleepTimer: option, sleepTimerEndsAt: Date.now() + minutes * 60 * 1000 });
     }
   },
 
-  clearSleepTimer: () => {
-    set({ sleepTimer: "off", sleepTimerEndsAt: null });
-  },
+  clearSleepTimer: () => set({ sleepTimer: "off", sleepTimerEndsAt: null }),
 
   checkSleepTimer: () => {
     const { sleepTimer, sleepTimerEndsAt, isPlaying, pause } = get();
     if (!isPlaying || sleepTimer === "off") return;
-
-    if (sleepTimer === "end-of-song") return; // handled by onSongEnd
-
+    if (sleepTimer === "end-of-song") return;
     if (sleepTimerEndsAt !== null && Date.now() >= sleepTimerEndsAt) {
       pause();
       set({ sleepTimer: "off", sleepTimerEndsAt: null });

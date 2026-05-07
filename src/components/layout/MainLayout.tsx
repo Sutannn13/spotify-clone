@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState, useCallback, useEffect, createContext, useContext, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
@@ -14,10 +14,9 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePlayerStore } from "@/store/playerStore";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
-import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { trackRecentPlay } from "@/lib/storage";
-import { useState, useCallback, useEffect, createContext, useContext, useRef } from "react";
 import type { Song } from "@/data/songs.types";
+import { useMemo } from "react";
 
 interface LayoutContextValue {
   openAddSong: () => void;
@@ -53,13 +52,14 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const setPlaylist = usePlayerStore((s) => s.setPlaylist);
-  const [coverUrlMap, setCoverUrlMap] = useState<Map<string, string>>(new Map());
   const [addSongOpen, setAddSongOpen] = useState(false);
   const [deleteSongId, setDeleteSongId] = useState<string | null>(null);
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [editSong, setEditSong] = useState<Song | null>(null);
   const [editSongOpen, setEditSongOpen] = useState(false);
   const prevSongIdRef = useRef<string | null>(null);
+  const playlistSetRef = useRef<boolean>(false);
+  const lastPlaylistLengthRef = useRef<number>(0);
 
   // Track recently played when a new song starts playing
   useEffect(() => {
@@ -69,32 +69,17 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [currentSong, isPlaying]);
 
+  // Set playlist ONCE on initial mount and when allSongs actually changes in length
+  // (i.e., song added or removed). Do NOT call repeatedly.
   useEffect(() => {
-    const loadCovers = async () => {
-      const newMap = new Map<string, string>();
-      for (const song of allSongs) {
-        if (song.source === "static") {
-          newMap.set(song.id, song.coverUrl);
-        } else {
-          const blob = await getCoverBlob(song.id);
-          newMap.set(song.id, blob ? createObjectUrl(blob) : "");
-        }
-      }
-      setCoverUrlMap(newMap);
-    };
-    if (allSongs.length > 0) loadCovers();
-  }, [allSongs]);
-
-  useEffect(() => {
-    if (allSongs.length > 0) {
+    if (allSongs.length === 0) return;
+    // Only update if song count changed (add/delete) or we haven't set it yet
+    if (allSongs.length !== lastPlaylistLengthRef.current || !playlistSetRef.current) {
+      lastPlaylistLengthRef.current = allSongs.length;
+      playlistSetRef.current = true;
       setPlaylist(allSongs);
     }
   }, [allSongs, setPlaylist]);
-
-  const coverResolver = useCallback(
-    (song: Song) => coverUrlMap.get(song.id) ?? "",
-    [coverUrlMap]
-  );
 
   const openAddSong = useCallback(() => setAddSongOpen(true), []);
   const openDeleteSong = useCallback((song: Song) => {
@@ -122,14 +107,24 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
 
     await removeSong(songToDelete.id);
+    // After delete, we need to reset the playlist set flag so it can update
+    playlistSetRef.current = false;
+    lastPlaylistLengthRef.current = 0;
     setSongToDelete(null);
     setDeleteSongId(null);
   }, [songToDelete, removeSong]);
 
+  // Cover resolver for player components
+  const coverResolver = useCallback(
+    (song: Song) => {
+      if (song.source === "static") return song.coverUrl;
+      return ""; // Local covers are resolved by individual components
+    },
+    []
+  );
+
   // Calculate bottom padding based on what is visible
   const hasCurrentSong = !!currentSong;
-  // Mobile: mobile nav (48px) + mini player (68px) + safe area
-  // Desktop: player bar (72px)
   const bottomPaddingClass = hasCurrentSong
     ? "pb-[140px] md:pb-[96px] lg:pb-[80px]"
     : "pb-[56px] md:pb-4 lg:pb-4";
@@ -155,7 +150,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
           {/* Mobile mini player */}
           {currentSong && !isFullscreen && (
-            <div className="md:hidden fixed bottom-[56px] left-0 right-0 z-40"
+            <div
+              className="md:hidden fixed bottom-[56px] left-0 right-0 z-40"
               style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
               <MiniPlayer />
@@ -166,10 +162,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <MobileNav onAddSong={openAddSong} />
         </div>
 
-        <NowPlayingModal
-          songs={allSongs}
-          coverResolver={coverResolver}
-        />
+        <NowPlayingModal songs={allSongs} coverResolver={coverResolver} />
 
         <AddSongModal
           isOpen={addSongOpen}

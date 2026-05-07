@@ -6,110 +6,98 @@ import type { Song } from "@/data/songs.types";
 import { trackRecentPlay } from "@/lib/storage";
 
 /**
- * Universal playback actions used across all components.
- * Provides a single source of truth for play/pause/toggle behavior.
+ * Canonical playback actions for all UI components.
+ * All play/pause/toggle entry points MUST use these functions.
+ * No component should call usePlayerStore().play / playSong / pause / toggle directly.
  */
 export function usePlaybackActions() {
   const store = usePlayerStore;
 
-  const playSong = useCallback((song: Song, playlist?: Song[]) => {
+  /**
+   * Universal play-or-pause for any song click.
+   *
+   * Behavior:
+   * - Song is NOT the current song → play it immediately (shuffle does NOT apply)
+   * - Song IS current and playing → pause (no time reset)
+   * - Song IS current and paused → resume (no time reset)
+   */
+  const playOrPause = useCallback((song: Song, list?: Song[]) => {
     const state = store.getState();
-    const list = playlist ?? state.playlist;
-    let index = list.findIndex((s) => s.id === song.id);
-
-    if (index === -1 && list.length > 0) {
-      // Song not in playlist - prepend it
-      const newList = [song, ...list];
-      store.setState({
-        playlist: newList,
-        currentIndex: 0,
-        isPlaying: true,
-        currentTime: 0,
-        isLoading: true,
-        playbackError: null,
-      });
-      trackRecentPlay(song.id);
-      return;
-    }
-
-    if (index === -1) {
-      // No playlist, single song
-      store.setState({
-        playlist: [song],
-        currentIndex: 0,
-        isPlaying: true,
-        currentTime: 0,
-        isLoading: true,
-        playbackError: null,
-      });
-      trackRecentPlay(song.id);
-      return;
-    }
-
-    // If same song is already current, just resume
-    if (state.currentIndex === index && state.playlist === list) {
-      store.setState({ isPlaying: true, playbackError: null });
-      return;
-    }
-
-    store.setState({
-      playlist: list,
-      currentIndex: index,
-      isPlaying: true,
-      currentTime: 0,
-      isLoading: true,
-      playbackError: null,
-    });
-    trackRecentPlay(song.id);
-  }, [store]);
-
-  const toggleCurrentSong = useCallback((song: Song, playlist?: Song[]) => {
-    const state = store.getState();
-    const list = playlist ?? state.playlist;
+    const listToUse = list ?? state.playlist;
     const currentIdx = state.currentIndex;
-    const isCurrent = state.playlist === list && currentIdx >= 0 && state.playlist[currentIdx]?.id === song.id;
+    const isCurrent =
+      currentIdx >= 0 &&
+      currentIdx < state.playlist.length &&
+      state.playlist[currentIdx]?.id === song.id &&
+      state.playlist === listToUse;
 
-    if (isCurrent) {
-      // Same song: toggle play/pause
-      store.getState().toggle();
-    } else {
-      // Different song: play it
-      playSong(song, playlist ?? list);
+    if (!isCurrent) {
+      // New song — always play from index
+      const index = listToUse.findIndex((s) => s.id === song.id);
+
+      if (index === -1 && state.playlist.length > 0) {
+        // Not in given list but playlist exists — prepend
+        store.setState({
+          playlist: [song, ...state.playlist],
+          currentIndex: 0,
+          isPlaying: true,
+          currentTime: 0,
+          isLoading: true,
+          playbackError: null,
+        });
+      } else if (index === -1) {
+        store.setState({
+          playlist: [song],
+          currentIndex: 0,
+          isPlaying: true,
+          currentTime: 0,
+          isLoading: true,
+          playbackError: null,
+        });
+      } else {
+        store.setState({
+          playlist: listToUse,
+          currentIndex: index,
+          isPlaying: true,
+          currentTime: 0,
+          isLoading: true,
+          playbackError: null,
+        });
+      }
+      trackRecentPlay(song.id);
+      return;
     }
-  }, [store, playSong]);
 
-  const play = useCallback(() => {
-    store.getState().play();
-  }, [store]);
+    // Current song — toggle play/pause, no time reset, no loading
+    store.getState().toggle();
+  }, []);
+
+  const playNext = useCallback(() => {
+    store.getState().next();
+  }, []);
+
+  const playPrev = useCallback(() => {
+    store.getState().prev();
+  }, []);
 
   const pause = useCallback(() => {
     store.getState().pause();
-  }, [store]);
+  }, []);
 
-  const togglePlayPause = useCallback(() => {
+  const resume = useCallback(() => {
+    store.getState().play();
+  }, []);
+
+  const toggle = useCallback(() => {
     store.getState().toggle();
-  }, [store]);
-
-  const playNext = useCallback((options?: { autoplay?: boolean }) => {
-    const state = store.getState();
-    if (options?.autoplay === false && !state.isPlaying) {
-      // Don't auto-play if requested
-      return;
-    }
-    store.getState().next();
-  }, [store]);
-
-  const playPrevious = useCallback(() => {
-    store.getState().prev();
-  }, [store]);
+  }, []);
 
   return {
-    playSong,
-    toggleCurrentSong,
-    play,
-    pause,
-    togglePlayPause,
+    playOrPause,
     playNext,
-    playPrevious,
+    playPrev,
+    pause,
+    resume,
+    toggle,
   };
 }

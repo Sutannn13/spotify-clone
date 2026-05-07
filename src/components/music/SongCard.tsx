@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Play, Pause, Loader2 } from "lucide-react";
+import { Play, Pause, Loader2, Music2, Trash2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
-import { Music2, Trash2 } from "lucide-react";
 
 interface SongCardProps {
   song: Song;
@@ -17,31 +17,23 @@ interface SongCardProps {
 
 export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
   const currentSong = usePlayerStore((s) => {
-    const playlist = s.playlist;
+    const pl = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
+    return idx >= 0 && idx < pl.length ? pl[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
-  const playSong = usePlayerStore((s) => s.playSong);
-  const play = usePlayerStore((s) => s.play);
-  const pause = usePlayerStore((s) => s.pause);
   const playlist = usePlayerStore((s) => s.playlist);
+
+  const { playOrPause } = usePlaybackActions();
 
   const isCurrentSong = currentSong?.id === song.id;
   const isCurrentlyLoading = isCurrentSong && isLoading;
   const coverUrl = getCover(song);
 
   const handlePlay = () => {
-    if (isCurrentSong) {
-      if (isPlaying) {
-        pause();
-      } else {
-        play();
-      }
-    } else {
-      playSong(song, playlist.length > 0 ? playlist : [song]);
-    }
+    const list = playlist.length > 0 ? playlist : [song];
+    playOrPause(song, list);
   };
 
   const handleDelete = (e: React.MouseEvent) => {

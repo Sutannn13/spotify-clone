@@ -6,34 +6,16 @@ import { SongCard } from "@/components/music/SongCard";
 import { SongList } from "@/components/music/SongList";
 import { EmptyLibrary } from "@/components/music/EmptyLibrary";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
-import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
-import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import type { Song } from "@/data/songs.types";
+import { useMemo } from "react";
 
 export default function HomePage() {
-  const { allSongs, isLoading } = useSongLibrary();
-  const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
+  const { allSongs, isLoading, getCoverUrl } = useSongLibrary();
 
-  useEffect(() => {
-    const load = async () => {
-      const map = new Map<string, string>();
-      for (const song of allSongs) {
-        if (song.source === "static") {
-          map.set(song.id, song.coverUrl);
-        } else {
-          const blob = await getCoverBlob(song.id);
-          map.set(song.id, blob ? createObjectUrl(blob) : "");
-        }
-      }
-      setCoverMap(map);
-    };
-    if (allSongs.length > 0) load();
-  }, [allSongs]);
-
-  const getCover = useCallback(
-    (song: Song) => coverMap.get(song.id) ?? "",
-    [coverMap]
+  const getCover = useMemo(
+    () => (song: Song) => getCoverUrl(song),
+    [getCoverUrl]
   );
 
   if (isLoading) {

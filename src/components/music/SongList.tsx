@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Play, Pause, Loader2, MoreHorizontal, Music2, Trash2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
@@ -15,7 +16,7 @@ interface SongListProps {
 }
 
 function formatDuration(seconds: number): string {
-  if (!seconds) return "\u2014";
+  if (!seconds) return "—";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -23,26 +24,17 @@ function formatDuration(seconds: number): string {
 
 export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
   const currentSong = usePlayerStore((s) => {
-    const playlist = s.playlist;
+    const pl = s.playlist;
     const idx = s.currentIndex;
-    return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
+    return idx >= 0 && idx < pl.length ? pl[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
-  const playSong = usePlayerStore((s) => s.playSong);
-  const play = usePlayerStore((s) => s.play);
-  const pause = usePlayerStore((s) => s.pause);
+
+  const { playOrPause } = usePlaybackActions();
 
   const handlePlay = (song: Song) => {
-    if (currentSong?.id === song.id) {
-      if (isPlaying) {
-        pause();
-      } else {
-        play();
-      }
-    } else {
-      playSong(song, songs);
-    }
+    playOrPause(song, songs);
   };
 
   const handleDelete = (e: React.MouseEvent, song: Song) => {
@@ -99,6 +91,7 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
                       "hidden transition-opacity",
                       isCurrent ? "block" : "group-hover:block"
                     )}
+                    aria-hidden="true"
                   >
                     {isCurrentLoading ? (
                       <Loader2 className="w-4 h-4 text-accent animate-spin" />
@@ -157,7 +150,6 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
 
                 {/* Actions */}
                 <div className="w-10 flex items-center justify-center gap-1">
-                  {/* Delete (local songs only) */}
                   {song.source === "local" && onDeleteSong ? (
                     <button
                       type="button"

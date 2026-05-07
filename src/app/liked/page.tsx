@@ -15,26 +15,24 @@ export default function LikedSongsPage() {
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
 
-  // Load liked IDs on mount and when window focus changes
+  // Listen for liked song changes
   useEffect(() => {
     const load = () => setLikedIds(getLikedSongIds());
     load();
 
     const handleFocus = () => load();
     window.addEventListener("focus", handleFocus);
-    // Also listen for storage changes from other tabs
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "aura-liked-songs") load();
     };
     window.addEventListener("storage", handleStorage);
-
-    // Poll every 2 seconds to detect in-tab changes
-    const interval = setInterval(load, 2000);
+    const handleLikeChange = () => load();
+    window.addEventListener("aura-likes-changed", handleLikeChange);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("storage", handleStorage);
-      clearInterval(interval);
+      window.removeEventListener("aura-likes-changed", handleLikeChange);
     };
   }, []);
 
