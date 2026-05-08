@@ -6,14 +6,14 @@ import type { Song } from "@/data/songs.types";
 import { getAudioBlob } from "@/lib/indexed-db";
 
 /**
- * Singleton audio element -- created once on the client and reused for all playback.
- * Prevents double-playback from React Strict Mode remounting.
+ * Singleton audio element — created once on the client and reused for all playback.
+ * This prevents double-playback from React Strict Mode remounting.
  */
 let globalAudio: HTMLAudioElement | null = null;
 let listenersAttached = false;
 let pendingPlayOnCanPlay = false;
 
-/** Cache blob object URLs by song id to avoid recreating them. */
+/** Cache blob object URLs by song id so we don't recreate them. */
 const blobUrlCache = new Map<string, string>();
 
 function getAudio(): HTMLAudioElement {
@@ -41,12 +41,12 @@ function attachListeners(audio: HTMLAudioElement) {
 
   const onCanPlay = () => {
     store.getState().setLoading(false);
-    // If we need to play, do it when audio is ready
     if (pendingPlayOnCanPlay) {
       pendingPlayOnCanPlay = false;
       audio.play().catch(() => {
-        store.getState().pause();
-        store.getState().setPlaybackError("Could not start playback");
+        const s = store.getState();
+        s.pause();
+        s.setPlaybackError("Could not start playback");
       });
     }
   };
@@ -60,15 +60,80 @@ function attachListeners(audio: HTMLAudioElement) {
     store.getState().setLoading(true);
   };
 
+  /**
+   * This is the ONLY place where same-song repeat is handled.
+   * The store can't restart an ended audio element — only this handler can.
+   *
+   * Priority:
+   * 1. Sleep-timer end-of-song → pause
+   * 2. repeatMode "once" → seek 0 + play once, then consume repeat
+   * 3. repeatMode "forever" → seek 0 + play loop
+   * 4. Otherwise → autoplay next (store.next handles shuffle/sequential)
+   */
   const onEnded = () => {
-    store.getState().onSongEnd();
+    const state = store.getState();
+
+    // 1. Sleep timer end-of-song
+    if (state.sleepTimer === "end-of-song") {
+      state.pause();
+      store.setState({ sleepTimer: "off", sleepTimerEndsAt: null });
+      return;
+    }
+
+    const currentSong = state.currentIndex >= 0 && state.currentIndex < state.playlist.length
+      ? state.playlist[state.currentIndex]
+      : null;
+
+    // 2. Repeat once — replay this song, then consume the repeat
+    if (
+      state.repeatMode === "once" &&
+      state.repeatSongId === currentSong?.id
+    ) {
+      audio.currentTime = 0;
+      store.setState({
+        currentTime: 0,
+        isPlaying: true,
+        isLoading: false,
+        playbackError: null,
+        repeatMode: "off",
+        repeatSongId: null,
+      });
+      audio.play().catch(() => {
+        const s = store.getState();
+        s.pause();
+        s.setPlaybackError("Repeat playback failed");
+      });
+      return;
+    }
+
+    // 3. Repeat forever — replay this song endlessly
+    if (
+      state.repeatMode === "forever" &&
+      state.repeatSongId === currentSong?.id
+    ) {
+      audio.currentTime = 0;
+      store.setState({
+        currentTime: 0,
+        isPlaying: true,
+        isLoading: false,
+        playbackError: null,
+      });
+      audio.play().catch(() => {
+        const s = store.getState();
+        s.pause();
+        s.setPlaybackError("Repeat playback failed");
+      });
+      return;
+    }
+
+    // 4. Normal autoplay — let the store handle next/prev/shuffle/sequential
+    state.next();
   };
 
   const onError = () => {
     const state = store.getState();
     state.setLoading(false);
     state.pause();
-
     const err = audio.error;
     let message = "Playback error";
     if (err) {
@@ -104,7 +169,6 @@ function attachListeners(audio: HTMLAudioElement) {
 export function useAudioPlayer() {
   const currentSongIdRef = useRef<string>("");
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDirectlyPlayingRef = useRef<boolean>(false);
 
   const currentIndex = usePlayerStore((s) => s.currentIndex);
   const playlist = usePlayerStore((s) => s.playlist);
@@ -122,11 +186,9 @@ export function useAudioPlayer() {
   /** Resolve audio URL for a song, with blob URL caching for local songs. */
   const resolveUrl = useCallback(async (song: Song): Promise<string> => {
     if (song.source === "static") return song.audioUrl;
-
     if (blobUrlCache.has(song.id)) {
       return blobUrlCache.get(song.id)!;
     }
-
     const blob = await getAudioBlob(song.id);
     if (blob) {
       const url = URL.createObjectURL(blob);
@@ -143,23 +205,23 @@ export function useAudioPlayer() {
     const song: Song = playlist[currentIndex];
     const store = usePlayerStore.getState();
 
-    // Clear any previous loading timeout
+    // Clear previous loading timeout
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
     }
 
-    // If same song is already loaded, just ensure it plays if needed
+    // Same song already loaded — just ensure it plays/resumes
     if (currentSongIdRef.current === song.id) {
       const audio = getAudio();
       if (store.isPlaying && audio.src) {
-        // Seek to 0 if we need to restart
         if (store.currentTime === 0 && audio.currentTime > 0.5) {
           audio.currentTime = 0;
         }
         audio.play().catch(() => {
-          store.pause();
-          store.setPlaybackError("Could not resume playback");
+          const s = usePlayerStore.getState();
+          s.pause();
+          s.setPlaybackError("Could not resume playback");
         });
       }
       store.setLoading(false);
@@ -181,7 +243,7 @@ export function useAudioPlayer() {
       audio.src = url;
       audio.load();
 
-      // Set a loading timeout fallback (8 seconds)
+      // 8-second loading timeout fallback
       loadingTimeoutRef.current = setTimeout(() => {
         const s = usePlayerStore.getState();
         if (s.isLoading) {
@@ -190,35 +252,24 @@ export function useAudioPlayer() {
         }
       }, 8000);
 
-      // If store says isPlaying, signal to play when ready
       if (store.isPlaying) {
         pendingPlayOnCanPlay = true;
-        // Attempt to play immediately too - might work on some browsers
         audio.play().catch(() => {
-          // Will be handled by canplay event
+          // canplay will handle it
         });
       }
     };
 
     load();
-
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-    };
   }, [currentIndex, playlist, resolveUrl]);
 
-  // Play / pause effect -- only for pause, play is handled in load effect
+  // Pause — play is handled in the load effect via pendingPlayOnCanPlay
   useEffect(() => {
     const audio = getAudio();
     if (!audio.src) return;
-
     if (!isPlaying) {
       audio.pause();
     }
-    // Play is handled in load effect via pendingPlayOnCanPlay
   }, [isPlaying]);
 
   // Volume
@@ -227,7 +278,7 @@ export function useAudioPlayer() {
     audio.volume = isMuted ? 0 : Math.max(0, Math.min(1, volume));
   }, [volume, isMuted]);
 
-  // Seek -- only jump if the difference is more than 1 second (avoid loop)
+  // Seek — only jump if more than 1 second out of sync (avoid loops)
   useEffect(() => {
     const audio = getAudio();
     if (Math.abs(audio.currentTime - currentTime) > 1) {
@@ -242,9 +293,7 @@ export function useAudioPlayer() {
   return { seek };
 }
 
-/**
- * Revoke a cached blob URL. Call when a local song is deleted.
- */
+/** Revoke a cached blob URL. Call when a local song is deleted. */
 export function revokeCachedBlobUrl(songId: string) {
   const cached = blobUrlCache.get(songId);
   if (cached) {

@@ -15,6 +15,7 @@ export default function RecentlyPlayedPage() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
 
+  // Load recent plays — no polling, use storage events
   useEffect(() => {
     const load = () => {
       const plays = getRecentPlays();
@@ -22,29 +23,31 @@ export default function RecentlyPlayedPage() {
     };
     load();
 
-    // Poll for changes
-    const interval = setInterval(load, 3000);
-    const handleFocus = () => load();
-    window.addEventListener("focus", handleFocus);
+    // Listen for storage changes from other tabs
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "aura-recent-plays") load();
+    };
+    // Listen for custom event from same-tab tracking
+    const onCustom = () => load();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("aura-recent-plays-changed", onCustom);
+    window.addEventListener("aura-track-play", onCustom);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("aura-recent-plays-changed", onCustom);
+      window.removeEventListener("aura-track-play", onCustom);
     };
   }, []);
 
-  const recentSongs = useMemo(
-    () =>
-      recentIds
-        .map((id) => allSongs.find((s) => s.id === id))
-        .filter(Boolean) as Song[],
-    [recentIds, allSongs]
-  );
-
+  // Load covers for recent songs only
   useEffect(() => {
+    const recentSongIds = new Set(recentIds);
     const load = async () => {
       const map = new Map<string, string>();
       for (const song of allSongs) {
+        if (!recentSongIds.has(song.id)) continue;
         if (song.source === "static") {
           map.set(song.id, song.coverUrl);
         } else {
@@ -54,12 +57,20 @@ export default function RecentlyPlayedPage() {
       }
       setCoverMap(map);
     };
-    if (allSongs.length > 0) load();
-  }, [allSongs]);
+    if (allSongs.length > 0 && recentIds.length > 0) load();
+  }, [allSongs, recentIds]);
 
   const getCover = useCallback(
     (song: Song) => coverMap.get(song.id) ?? "",
     [coverMap]
+  );
+
+  const recentSongs = useMemo(
+    () =>
+      recentIds
+        .map((id) => allSongs.find((s) => s.id === id))
+        .filter(Boolean) as Song[],
+    [recentIds, allSongs]
   );
 
   if (isLoading) {
@@ -77,7 +88,7 @@ export default function RecentlyPlayedPage() {
       <div className="min-h-screen px-4 md:px-8 py-6 md:py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-900 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/20">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-900 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-900/20">
             <Clock className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -105,7 +116,7 @@ export default function RecentlyPlayedPage() {
                 No recently played songs
               </p>
               <p className="text-xs text-text-secondary mt-1">
-                Start listening to build your play history
+                Start playing songs to build your history
               </p>
             </div>
           </motion.div>
