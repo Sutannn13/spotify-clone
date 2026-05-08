@@ -141,6 +141,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                 <button
                   type="button"
                   onClick={handleClose}
+                  aria-label="Close edit song modal"
                   className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -154,11 +155,13 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-title">
                       Title <span className="text-accent">*</span>
                     </label>
                     <input
                       type="text"
+                      id="edit-song-title"
+                      name="title"
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value);
@@ -176,11 +179,13 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-artist">
                       Artist <span className="text-accent">*</span>
                     </label>
                     <input
                       type="text"
+                      id="edit-song-artist"
+                      name="artist"
                       value={artist}
                       onChange={(e) => {
                         setArtist(e.target.value);
@@ -200,9 +205,11 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">Album</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-album">Album</label>
                   <input
                     type="text"
+                    id="edit-song-album"
+                    name="album"
                     value={album}
                     onChange={(e) => setAlbum(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-primary focus:border-border-focus transition-colors"
@@ -211,8 +218,10 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Mood</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-mood">Mood</label>
                     <select
+                      id="edit-song-mood"
+                      name="mood"
                       value={mood}
                       onChange={(e) => setMood(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-primary focus:border-border-focus transition-colors"
@@ -224,8 +233,10 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Genre</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-genre">Genre</label>
                     <select
+                      id="edit-song-genre"
+                      name="genre"
                       value={genre}
                       onChange={(e) => setGenre(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-primary focus:border-border-focus transition-colors"
@@ -261,10 +272,12 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
 
                 {lyricsType !== "none" && (
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="edit-song-lyrics">
                       {lyricsType === "lrc" ? "LRC Lyrics" : "Lyrics Text"}
                     </label>
                     <textarea
+                      id="edit-song-lyrics"
+                      name="lyrics"
                       value={lyrics}
                       onChange={(e) => setLyrics(e.target.value)}
                       rows={5}
@@ -283,6 +296,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                 <button
                   type="button"
                   onClick={handleClose}
+                  aria-label="Cancel edit song"
                   className="flex-1 py-2.5 rounded-lg text-sm font-medium text-text-secondary border border-border hover:bg-bg-hover transition-colors"
                 >
                   Cancel
@@ -291,6 +305,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                   type="submit"
                   form={formId}
                   disabled={isSubmitting}
+                  aria-label="Save song changes"
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-text-primary text-bg-base hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (

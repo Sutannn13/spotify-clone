@@ -21,8 +21,7 @@ export function MobileNav({ onAddSong }: MobileNavProps) {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg-base/95 backdrop-blur-lg border-t border-border"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg-base/95 backdrop-blur-lg border-t border-border safe-area-bottom"
     >
       <div className="flex items-center justify-around px-2">
         {navItems.map((item) => {

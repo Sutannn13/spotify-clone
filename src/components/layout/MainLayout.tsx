@@ -151,8 +151,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* Mobile mini player */}
           {currentSong && !isFullscreen && (
             <div
-              className="md:hidden fixed bottom-[56px] left-0 right-0 z-40"
-              style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+              className="md:hidden fixed bottom-[56px] left-0 right-0 z-40 safe-area-bottom"
             >
               <MiniPlayer />
             </div>

@@ -213,6 +213,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 </div>
                 <button
                   onClick={handleClose}
+                  aria-label="Close add song modal"
                   className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -232,6 +233,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   </label>
                   <button
                     type="button"
+                    aria-label="Upload audio file"
                     onClick={() => audioInputRef.current?.click()}
                     className={clsx(
                       "w-full h-24 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors",
@@ -263,6 +265,8 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <input
                     ref={audioInputRef}
                     type="file"
+                    id="audio-file"
+                    name="audioFile"
                     accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/m4a"
                     onChange={handleAudioChange}
                     className="hidden"
@@ -279,6 +283,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <label className="block text-sm font-medium text-text-secondary mb-2">Cover Image</label>
                   <button
                     type="button"
+                    aria-label="Upload cover image"
                     onClick={() => coverInputRef.current?.click()}
                     className={clsx(
                       "w-full h-24 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors overflow-hidden",
@@ -310,6 +315,8 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <input
                     ref={coverInputRef}
                     type="file"
+                    id="cover-file"
+                    name="coverFile"
                     accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                     onChange={handleCoverChange}
                     className="hidden"
@@ -324,11 +331,13 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 {/* Title & Artist */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-title">
                       Title <span className="text-accent">*</span>
                     </label>
                     <input
                       type="text"
+                      id="song-title"
+                      name="title"
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value);
@@ -347,11 +356,13 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-artist">
                       Artist <span className="text-accent">*</span>
                     </label>
                     <input
                       type="text"
+                      id="song-artist"
+                      name="artist"
                       value={artist}
                       onChange={(e) => {
                         setArtist(e.target.value);
@@ -374,9 +385,11 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 {/* Album & Duration */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Album</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-album">Album</label>
                     <input
                       type="text"
+                      id="song-album"
+                      name="album"
                       value={album}
                       onChange={(e) => setAlbum(e.target.value)}
                       placeholder="Album name (optional)"
@@ -384,9 +397,11 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Duration (seconds)</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-duration">Duration (seconds)</label>
                     <input
                       type="number"
+                      id="song-duration"
+                      name="duration"
                       value={duration}
                       onChange={(e) => setDuration(e.target.value)}
                       placeholder="Auto-detected"
@@ -407,8 +422,10 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 {/* Mood & Genre */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Mood</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-mood">Mood</label>
                     <select
+                      id="song-mood"
+                      name="mood"
                       value={mood}
                       onChange={(e) => setMood(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-primary focus:border-border-focus transition-colors"
@@ -420,8 +437,10 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">Genre</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-genre">Genre</label>
                     <select
+                      id="song-genre"
+                      name="genre"
                       value={genre}
                       onChange={(e) => setGenre(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-primary focus:border-border-focus transition-colors"
@@ -459,10 +478,12 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 {/* Lyrics textarea */}
                 {lyricsType !== "none" && (
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2" htmlFor="song-lyrics">
                       {lyricsType === "lrc" ? "LRC Lyrics" : "Lyrics Text"}
                     </label>
                     <textarea
+                      id="song-lyrics"
+                      name="lyrics"
                       value={lyrics}
                       onChange={(e) => setLyrics(e.target.value)}
                       rows={5}
@@ -482,6 +503,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 <button
                   type="button"
                   onClick={handleClose}
+                  aria-label="Cancel add song"
                   className="flex-1 py-2.5 rounded-lg text-sm font-medium text-text-secondary border border-border hover:bg-bg-hover transition-colors"
                 >
                   Cancel
@@ -490,6 +512,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   type="submit"
                   form={formId}
                   disabled={isSubmitting}
+                  aria-label="Add song"
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-text-primary text-bg-base hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
