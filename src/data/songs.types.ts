@@ -1,5 +1,5 @@
 export type LyricsType = "none" | "plain" | "lrc";
-export type SongSource = "static" | "local";
+export type SongSource = "static" | "local" | "supabase";
 
 export interface Song {
   id: string;
@@ -15,6 +15,7 @@ export interface Song {
   audioFileName: string;
   coverFileName: string;
   createdAt: string;
+  updatedAt?: string;
   mood?: string;
   genre?: string;
 }

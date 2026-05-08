@@ -21,15 +21,20 @@ export function ProgressBar() {
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+  const seekToRatio = useCallback((ratio: number) => {
+    if (duration === 0) return;
+    seek(clamp(ratio, 0, 1) * duration);
+  }, [duration, seek]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!barRef.current || duration === 0) return;
       const rect = barRef.current.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      seek(ratio * duration);
+      const ratio = (e.clientX - rect.left) / rect.width;
+      seekToRatio(ratio);
     },
-    [duration, seek]
+    [duration, seekToRatio]
   );
 
   const handleMouseMove = useCallback(
@@ -44,6 +49,41 @@ export function ProgressBar() {
 
   const handleMouseLeave = useCallback(() => setHoverTime(null), []);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (duration === 0) return;
+    const stepSmall = Math.max(1, duration * 0.01);
+    const stepLarge = Math.max(5, duration * 0.05);
+
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        e.preventDefault();
+        seek(clamp(currentTime + stepSmall, 0, duration));
+        break;
+      case "ArrowLeft":
+      case "ArrowDown":
+        e.preventDefault();
+        seek(clamp(currentTime - stepSmall, 0, duration));
+        break;
+      case "PageUp":
+        e.preventDefault();
+        seek(clamp(currentTime + stepLarge, 0, duration));
+        break;
+      case "PageDown":
+        e.preventDefault();
+        seek(clamp(currentTime - stepLarge, 0, duration));
+        break;
+      case "Home":
+        e.preventDefault();
+        seek(0);
+        break;
+      case "End":
+        e.preventDefault();
+        seek(duration);
+        break;
+    }
+  }, [currentTime, duration, seek]);
+
   return (
     <div className="flex items-center gap-3 w-full group">
       <span className="text-xs text-text-muted tabular-nums w-9 text-right shrink-0">
@@ -56,6 +96,14 @@ export function ProgressBar() {
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onKeyDown={handleKeyDown}
+        role="slider"
+        tabIndex={0}
+        aria-label="Seek playback position"
+        aria-valuemin={0}
+        aria-valuemax={Math.floor(duration)}
+        aria-valuenow={Math.floor(currentTime)}
+        aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
       >
         {/* Background */}
         <div className="absolute inset-0 rounded-full bg-border/40" />

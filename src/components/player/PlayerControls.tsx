@@ -147,6 +147,7 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
               : "text-text-secondary hover:text-text-primary"
         )}
         aria-label={repeatLabel}
+        aria-pressed={repeatMode !== "off"}
       >
         {repeatMode === "once" ? (
           <Repeat1 className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />

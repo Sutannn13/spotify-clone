@@ -15,8 +15,8 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePlayerStore } from "@/store/playerStore";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import { trackRecentPlay } from "@/lib/storage";
+import { useToast } from "@/components/ui/Toast";
 import type { Song } from "@/data/songs.types";
-import { useMemo } from "react";
 
 interface LayoutContextValue {
   openAddSong: () => void;
@@ -42,7 +42,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   useAudioPlayer();
   useKeyboardShortcuts();
 
-  const { allSongs, addSong, removeSong, updateSong } = useSongLibrary();
+  const { allSongs, addSong, removeSong, updateSong, getCoverUrl, supabaseEnabled, error } = useSongLibrary();
+  const { toast } = useToast();
 
   const isFullscreen = usePlayerStore((s) => s.isFullscreen);
   const currentSong = usePlayerStore((s) => {
@@ -58,6 +59,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [editSong, setEditSong] = useState<Song | null>(null);
   const [editSongOpen, setEditSongOpen] = useState(false);
   const prevSongIdRef = useRef<string | null>(null);
+  const lastLibraryErrorRef = useRef<string | null>(null);
   const playlistSetRef = useRef<boolean>(false);
   const lastPlaylistLengthRef = useRef<number>(0);
 
@@ -68,6 +70,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       trackRecentPlay(currentSong.id);
     }
   }, [currentSong, isPlaying]);
+
+  useEffect(() => {
+    if (!error) return;
+    if (lastLibraryErrorRef.current === error) return;
+    lastLibraryErrorRef.current = error;
+    toast(error, "error");
+  }, [error, toast]);
 
   // Set playlist ONCE on initial mount and when allSongs actually changes in length
   // (i.e., song added or removed). Do NOT call repeatedly.
@@ -106,21 +115,26 @@ export function MainLayout({ children }: MainLayoutProps) {
       }
     }
 
-    await removeSong(songToDelete.id);
-    // After delete, we need to reset the playlist set flag so it can update
-    playlistSetRef.current = false;
-    lastPlaylistLengthRef.current = 0;
-    setSongToDelete(null);
-    setDeleteSongId(null);
-  }, [songToDelete, removeSong]);
+    try {
+      await removeSong(songToDelete);
+      // After delete, we need to reset the playlist set flag so it can update
+      playlistSetRef.current = false;
+      lastPlaylistLengthRef.current = 0;
+      setSongToDelete(null);
+      setDeleteSongId(null);
+      toast("Song deleted successfully", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete song.";
+      toast(message, "error");
+    }
+  }, [songToDelete, removeSong, toast]);
 
   // Cover resolver for player components
   const coverResolver = useCallback(
     (song: Song) => {
-      if (song.source === "static") return song.coverUrl;
-      return ""; // Local covers are resolved by individual components
+      return getCoverUrl(song);
     },
-    []
+    [getCoverUrl]
   );
 
   // Calculate bottom padding based on what is visible
@@ -167,6 +181,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           isOpen={addSongOpen}
           onClose={() => setAddSongOpen(false)}
           onAdd={addSong}
+          supabaseEnabled={supabaseEnabled}
         />
 
         <DeleteSongDialog

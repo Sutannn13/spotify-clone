@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Pause, Loader2, MoreHorizontal, Trash2 } from "lucide-react";
+import { Play, Pause, Loader2, MoreHorizontal, Trash2, Pencil } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
@@ -13,6 +13,7 @@ interface SongListProps {
   songs: Song[];
   getCover: (song: Song) => string;
   onDeleteSong?: (song: Song) => void;
+  onEditSong?: (song: Song) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -22,7 +23,7 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
+export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongListProps) {
   const currentSong = usePlayerStore((s) => {
     const pl = s.playlist;
     const idx = s.currentIndex;
@@ -40,6 +41,11 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
   const handleDelete = (e: React.MouseEvent, song: Song) => {
     e.stopPropagation();
     onDeleteSong?.(song);
+  };
+
+  const handleEdit = (e: React.MouseEvent, song: Song) => {
+    e.stopPropagation();
+    onEditSong?.(song);
   };
 
   return (
@@ -154,15 +160,29 @@ export function SongList({ songs, getCover, onDeleteSong }: SongListProps) {
 
                 {/* Actions */}
                 <div className="w-10 flex items-center justify-center gap-1">
-                  {song.source === "local" && onDeleteSong ? (
-                    <button
-                      type="button"
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => handleDelete(e, song)}
-                      aria-label="Delete song"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {(song.source === "local" || song.source === "supabase") && (onDeleteSong || onEditSong) ? (
+                    <>
+                      {onEditSong && (
+                        <button
+                          type="button"
+                          className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
+                          onClick={(e) => handleEdit(e, song)}
+                          aria-label="Edit song"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteSong && (
+                        <button
+                          type="button"
+                          className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
+                          onClick={(e) => handleDelete(e, song)}
+                          aria-label="Delete song"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <button
                       type="button"

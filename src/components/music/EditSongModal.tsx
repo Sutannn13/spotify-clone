@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useId, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Save, AlertCircle } from "lucide-react";
+import { X, Save, AlertCircle, Upload, Image } from "lucide-react";
 import { clsx } from "clsx";
 import type { Song, LyricsType } from "@/data/songs.types";
 import { useToast } from "@/components/ui/Toast";
@@ -11,15 +11,19 @@ interface EditSongModalProps {
   isOpen: boolean;
   song: Song | null;
   onClose: () => void;
-  onSave: (songId: string, data: {
-    title: string;
-    artist: string;
-    album: string;
-    lyrics: string;
-    lyricsType: LyricsType;
-    mood?: string;
-    genre?: string;
-  }) => Promise<void>;
+  onSave: (
+    song: Song,
+    data: {
+      title: string;
+      artist: string;
+      album: string;
+      lyrics: string;
+      lyricsType: LyricsType;
+      mood?: string;
+      genre?: string;
+      coverFile?: File;
+    }
+  ) => Promise<void>;
 }
 
 const MOOD_OPTIONS = [
@@ -49,6 +53,7 @@ const GENRE_OPTIONS = [
 export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalProps) {
   const { toast } = useToast();
   const formId = useId();
+  const coverInputId = `${formId}-replace-cover`;
 
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -57,6 +62,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
   const [lyricsType, setLyricsType] = useState<LyricsType>("none");
   const [mood, setMood] = useState("");
   const [genre, setGenre] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -70,6 +76,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
       setLyricsType(song.lyricsType);
       setMood(song.mood ?? "");
       setGenre(song.genre ?? "");
+      setCoverFile(null);
       setErrors({});
     }
   }, [song]);
@@ -77,8 +84,20 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
   const handleClose = useCallback(() => {
     setErrors({});
     setIsSubmitting(false);
+    setCoverFile(null);
     onClose();
   }, [onClose]);
+
+  const handleCoverChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setErrors((prev) => ({ ...prev, cover: "Only image files are allowed for cover replacement" }));
+      return;
+    }
+    setErrors((prev) => ({ ...prev, cover: "" }));
+    setCoverFile(file);
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -94,7 +113,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
 
     setIsSubmitting(true);
     try {
-      await onSave(song.id, {
+      await onSave(song, {
         title: title.trim(),
         artist: artist.trim(),
         album: album.trim() || "Unknown Album",
@@ -102,6 +121,7 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
         lyricsType,
         mood: mood || undefined,
         genre: genre || undefined,
+        coverFile: coverFile ?? undefined,
       });
       toast("Song updated successfully", "success");
       handleClose();
@@ -249,6 +269,39 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                   </div>
                 </div>
 
+                {song.source === "supabase" && (
+                  <div>
+                    <label
+                      className="block text-sm font-medium text-text-secondary mb-2"
+                      htmlFor={coverInputId}
+                    >
+                      Replace Cover Image (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor={coverInputId}
+                        className="flex-1 cursor-pointer px-3.5 py-2.5 rounded-lg bg-bg-base border border-border text-sm text-text-secondary hover:bg-bg-hover transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {coverFile ? coverFile.name : "Choose new cover image"}
+                      </label>
+                      <Image className="w-4 h-4 text-text-muted" aria-hidden="true" />
+                    </div>
+                    <input
+                      id={coverInputId}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      onChange={handleCoverChange}
+                      className="hidden"
+                    />
+                    {errors.cover && (
+                      <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> {errors.cover}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">Lyrics</label>
                   <div className="flex gap-2">
@@ -263,6 +316,14 @@ export function EditSongModal({ isOpen, song, onClose, onSave }: EditSongModalPr
                             ? "border-accent bg-accent/10 text-text-primary"
                             : "border-border bg-bg-base text-text-secondary hover:bg-bg-hover"
                         )}
+                        aria-label={
+                          type === "none"
+                            ? "No lyrics"
+                            : type === "plain"
+                              ? "Plain text lyrics"
+                              : "LRC synced lyrics"
+                        }
+                        aria-pressed={lyricsType === type}
                       >
                         {type === "none" ? "None" : type === "plain" ? "Plain Text" : "LRC (Sync)"}
                       </button>

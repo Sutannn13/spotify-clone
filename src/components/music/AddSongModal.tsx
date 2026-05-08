@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 interface AddSongModalProps {
   isOpen: boolean;
   onClose: () => void;
+  supabaseEnabled?: boolean;
   onAdd: (data: {
     title: string;
     artist: string;
@@ -21,6 +22,7 @@ interface AddSongModalProps {
     genre?: string;
     audioFile: File;
     coverFile?: File;
+    uploadTarget?: "local" | "supabase";
   }) => Promise<Song>;
 }
 
@@ -51,9 +53,16 @@ const GENRE_OPTIONS = [
   "Other",
 ];
 
-export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
+export function AddSongModal({
+  isOpen,
+  onClose,
+  onAdd,
+  supabaseEnabled = false,
+}: AddSongModalProps) {
   const { toast } = useToast();
   const formId = useId();
+  const audioInputId = `${formId}-audio-file`;
+  const coverInputId = `${formId}-cover-file`;
   const audioInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +78,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
   const [lyricsType, setLyricsType] = useState<LyricsType>("none");
   const [mood, setMood] = useState("");
   const [genre, setGenre] = useState("");
+  const [uploadTarget, setUploadTarget] = useState<"local" | "supabase">("local");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,6 +97,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
     setLyricsType("none");
     setMood("");
     setGenre("");
+    setUploadTarget("local");
     setErrors({});
     setIsSubmitting(false);
   }, [audioPreview, coverPreview]);
@@ -151,6 +162,9 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
     if (duration && isNaN(Number(duration))) {
       newErrors.duration = "Duration must be a number";
     }
+    if (uploadTarget === "supabase" && !supabaseEnabled) {
+      newErrors.uploadTarget = "Supabase is not configured in this environment";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -173,12 +187,20 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
         genre: genre || undefined,
         audioFile: audioFile as File,
         coverFile: coverFile ?? undefined,
+        uploadTarget,
       });
 
-      toast("Song added successfully", "success");
+      toast(
+        uploadTarget === "supabase"
+          ? "Song uploaded to Supabase successfully"
+          : "Song added successfully",
+        "success"
+      );
       handleClose();
-    } catch {
-      toast("Failed to add song. Please try again.", "error");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to add song. Please try again.";
+      toast(message, "error");
       setIsSubmitting(false);
     }
   };
@@ -212,6 +234,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <p className="text-xs text-text-muted mt-0.5">Upload audio files and metadata</p>
                 </div>
                 <button
+                  type="button"
                   onClick={handleClose}
                   aria-label="Close add song modal"
                   className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
@@ -226,9 +249,63 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                 onSubmit={handleSubmit}
                 className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5"
               >
-                {/* Audio file upload */}
+                {/* Upload target */}
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Upload Target
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUploadTarget("local")}
+                      className={clsx(
+                        "py-2.5 rounded-lg text-xs font-medium border transition-all",
+                        uploadTarget === "local"
+                          ? "border-accent bg-accent/10 text-text-primary"
+                          : "border-border bg-bg-base text-text-secondary hover:bg-bg-hover"
+                      )}
+                      aria-label="Store song in local browser only"
+                      aria-pressed={uploadTarget === "local"}
+                    >
+                      Local Browser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!supabaseEnabled) return;
+                        setUploadTarget("supabase");
+                      }}
+                      disabled={!supabaseEnabled}
+                      className={clsx(
+                        "py-2.5 rounded-lg text-xs font-medium border transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                        uploadTarget === "supabase"
+                          ? "border-accent bg-accent/10 text-text-primary"
+                          : "border-border bg-bg-base text-text-secondary hover:bg-bg-hover"
+                      )}
+                      aria-label="Upload song to Supabase cloud storage"
+                      aria-pressed={uploadTarget === "supabase"}
+                    >
+                      Cloud Supabase
+                    </button>
+                  </div>
+                  {!supabaseEnabled && (
+                    <p className="text-xs text-text-muted mt-1.5">
+                      Supabase env not found. Cloud upload is disabled and app will use local storage.
+                    </p>
+                  )}
+                  {errors.uploadTarget && (
+                    <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> {errors.uploadTarget}
+                    </p>
+                  )}
+                </div>
+
+                {/* Audio file upload */}
+                <div>
+                  <label
+                    className="block text-sm font-medium text-text-secondary mb-2"
+                    htmlFor={audioInputId}
+                  >
                     Audio File <span className="text-accent">*</span>
                   </label>
                   <button
@@ -265,7 +342,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <input
                     ref={audioInputRef}
                     type="file"
-                    id="audio-file"
+                    id={audioInputId}
                     name="audioFile"
                     accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/m4a"
                     onChange={handleAudioChange}
@@ -280,7 +357,12 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
 
                 {/* Cover image upload */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">Cover Image</label>
+                  <label
+                    className="block text-sm font-medium text-text-secondary mb-2"
+                    htmlFor={coverInputId}
+                  >
+                    Cover Image
+                  </label>
                   <button
                     type="button"
                     aria-label="Upload cover image"
@@ -315,7 +397,7 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                   <input
                     ref={coverInputRef}
                     type="file"
-                    id="cover-file"
+                    id={coverInputId}
                     name="coverFile"
                     accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                     onChange={handleCoverChange}
@@ -468,6 +550,14 @@ export function AddSongModal({ isOpen, onClose, onAdd }: AddSongModalProps) {
                             ? "border-accent bg-accent/10 text-text-primary"
                             : "border-border bg-bg-base text-text-secondary hover:bg-bg-hover"
                         )}
+                        aria-label={
+                          type === "none"
+                            ? "No lyrics"
+                            : type === "plain"
+                              ? "Plain text lyrics"
+                              : "LRC synced lyrics"
+                        }
+                        aria-pressed={lyricsType === type}
                       >
                         {type === "none" ? "None" : type === "plain" ? "Plain Text" : "LRC (Sync)"}
                       </button>

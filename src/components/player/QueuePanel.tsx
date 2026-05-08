@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Play, Pause, Loader2, Trash2, ChevronUp, ChevronDown, ListMusic } from "lucide-react";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import { usePlayerStore } from "@/store/playerStore";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { useState } from "react";
@@ -28,23 +29,17 @@ export function QueuePanel({ songs, coverResolver }: QueuePanelProps) {
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
-  const playSong = usePlayerStore((s) => s.playSong);
-  const toggle = usePlayerStore((s) => s.toggle);
   const queue = usePlayerStore((s) => s.queue);
   const moveQueueItem = usePlayerStore((s) => s.moveQueueItem);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const clearQueue = usePlayerStore((s) => s.clearQueue);
-  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const { playOrPause } = usePlaybackActions();
 
   const [localQueue, setLocalQueue] = useState<Song[]>([]);
   const displayQueue = queue.length > 0 ? queue : localQueue;
 
   const handlePlay = (song: Song) => {
-    if (currentSong?.id === song.id) {
-      toggle();
-    } else {
-      playSong(song, displayQueue);
-    }
+    playOrPause(song, displayQueue);
   };
 
   const handleMoveUp = (index: number) => {

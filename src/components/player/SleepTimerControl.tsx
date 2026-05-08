@@ -35,10 +35,14 @@ export function SleepTimerControl() {
   const activeOption = SLEEP_TIMER_OPTIONS.find((o) => o.value === sleepTimer);
   const remaining = formatRemainingTime(sleepTimerEndsAt);
   const isActive = sleepTimer !== "off";
+  const sleepTimerLabel = isActive
+    ? `Sleep timer active: ${activeOption?.label ?? "custom option"}`
+    : "Sleep timer off";
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-all",
@@ -46,8 +50,10 @@ export function SleepTimerControl() {
             ? "text-accent bg-accent/10"
             : "text-text-secondary hover:text-text-primary hover:bg-bg-hover"
         )}
-        aria-label="Sleep timer"
+        aria-label={sleepTimerLabel}
         aria-pressed={isActive}
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <Moon className="w-4 h-4" />
         {isActive && (
@@ -83,6 +89,7 @@ export function SleepTimerControl() {
                 {SLEEP_TIMER_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
+                    type="button"
                     onClick={() => {
                       setSleepTimer(opt.value);
                       setOpen(false);
@@ -93,6 +100,8 @@ export function SleepTimerControl() {
                         ? "bg-bg-hover text-text-primary font-medium"
                         : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                     )}
+                    aria-label={`Set sleep timer: ${opt.label}`}
+                    aria-pressed={sleepTimer === opt.value}
                   >
                     {opt.label}
                   </button>

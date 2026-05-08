@@ -62,7 +62,7 @@ export function DeleteSongDialog({
                   {song.source === "static" && (
                     <p className="text-xs text-text-muted mt-2 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3 text-yellow-500" />
-                      Static songs can only be hidden from the library.
+                      Static songs must be edited in code.
                     </p>
                   )}
                   {song.source === "local" && (
@@ -70,9 +70,16 @@ export function DeleteSongDialog({
                       This will permanently remove the uploaded file from your browser storage.
                     </p>
                   )}
+                  {song.source === "supabase" && (
+                    <p className="text-xs text-text-muted mt-2">
+                      This will remove song metadata from Supabase and attempt to delete related storage files.
+                    </p>
+                  )}
                 </div>
                 <button
+                  type="button"
                   onClick={onClose}
+                  aria-label="Close delete dialog"
                   className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
@@ -82,12 +89,14 @@ export function DeleteSongDialog({
               {/* Footer */}
               <div className="flex items-center gap-3 px-6 py-4 border-t border-border">
                 <button
+                  type="button"
                   onClick={onClose}
                   className="flex-1 py-2.5 rounded-lg text-sm font-medium text-text-secondary border border-border hover:bg-bg-hover transition-colors"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirm}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                 >

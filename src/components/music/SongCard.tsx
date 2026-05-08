@@ -87,7 +87,7 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
         </div>
 
         {/* Delete button (local songs only) */}
-        {song.source === "local" && onDeleteSong && (
+        {(song.source === "local" || song.source === "supabase") && onDeleteSong && (
           <button
             type="button"
             onClick={handleDelete}

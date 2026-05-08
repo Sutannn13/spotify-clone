@@ -68,6 +68,7 @@ export function getRecentPlays(): RecentPlay[] {
  * instead of inserting a duplicate. Newest first.
  */
 export function trackRecentPlay(songId: string): void {
+  if (typeof window === "undefined") return;
   const plays = getRecentPlays();
   const existing = plays.findIndex((p) => p.songId === songId);
   if (existing >= 0) {
@@ -79,6 +80,8 @@ export function trackRecentPlay(songId: string): void {
     plays.length = MAX_RECENT_PLAYS;
   }
   localStorage.setItem(RECENT_PLAYS_KEY, JSON.stringify(plays));
+  window.dispatchEvent(new Event("aura-recent-plays-changed"));
+  window.dispatchEvent(new Event("aura-track-play"));
 }
 
 export function clearRecentPlays(): void {

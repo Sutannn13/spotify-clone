@@ -12,9 +12,17 @@ import { getAudioBlob } from "@/lib/indexed-db";
 let globalAudio: HTMLAudioElement | null = null;
 let listenersAttached = false;
 let pendingPlayOnCanPlay = false;
+let loadingTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
 /** Cache blob object URLs by song id so we don't recreate them. */
 const blobUrlCache = new Map<string, string>();
+
+function clearLoadingTimeout() {
+  if (loadingTimeoutHandle) {
+    clearTimeout(loadingTimeoutHandle);
+    loadingTimeoutHandle = null;
+  }
+}
 
 function getAudio(): HTMLAudioElement {
   if (!globalAudio) {
@@ -35,11 +43,13 @@ function attachListeners(audio: HTMLAudioElement) {
   };
 
   const onLoadedMetadata = () => {
+    clearLoadingTimeout();
     store.getState().setDuration(audio.duration);
     store.getState().setLoading(false);
   };
 
   const onCanPlay = () => {
+    clearLoadingTimeout();
     store.getState().setLoading(false);
     if (pendingPlayOnCanPlay) {
       pendingPlayOnCanPlay = false;
@@ -52,12 +62,20 @@ function attachListeners(audio: HTMLAudioElement) {
   };
 
   const onPlaying = () => {
+    clearLoadingTimeout();
     store.getState().setLoading(false);
     store.getState().setPlaybackError(null);
   };
 
   const onWaiting = () => {
-    store.getState().setLoading(true);
+    if (store.getState().isPlaying) {
+      store.getState().setLoading(true);
+    }
+  };
+
+  const onPause = () => {
+    clearLoadingTimeout();
+    store.getState().setLoading(false);
   };
 
   /**
@@ -71,6 +89,7 @@ function attachListeners(audio: HTMLAudioElement) {
    * 4. Otherwise → autoplay next (store.next handles shuffle/sequential)
    */
   const onEnded = () => {
+    clearLoadingTimeout();
     const state = store.getState();
 
     // 1. Sleep timer end-of-song
@@ -90,19 +109,27 @@ function attachListeners(audio: HTMLAudioElement) {
       state.repeatSongId === currentSong?.id
     ) {
       audio.currentTime = 0;
-      store.setState({
-        currentTime: 0,
-        isPlaying: true,
-        isLoading: false,
-        playbackError: null,
-        repeatMode: "off",
-        repeatSongId: null,
-      });
-      audio.play().catch(() => {
-        const s = store.getState();
-        s.pause();
-        s.setPlaybackError("Repeat playback failed");
-      });
+      state.setCurrentTime(0);
+      state.setLoading(false);
+      state.setPlaybackError(null);
+      if (!state.isPlaying) {
+        state.play();
+      }
+      audio.play()
+        .then(() => {
+          const latest = store.getState();
+          if (
+            latest.repeatMode === "once" &&
+            latest.repeatSongId === currentSong?.id
+          ) {
+            store.setState({ repeatMode: "off", repeatSongId: null });
+          }
+        })
+        .catch(() => {
+          const s = store.getState();
+          s.pause();
+          s.setPlaybackError("Repeat playback failed");
+        });
       return;
     }
 
@@ -112,12 +139,12 @@ function attachListeners(audio: HTMLAudioElement) {
       state.repeatSongId === currentSong?.id
     ) {
       audio.currentTime = 0;
-      store.setState({
-        currentTime: 0,
-        isPlaying: true,
-        isLoading: false,
-        playbackError: null,
-      });
+      state.setCurrentTime(0);
+      state.setLoading(false);
+      state.setPlaybackError(null);
+      if (!state.isPlaying) {
+        state.play();
+      }
       audio.play().catch(() => {
         const s = store.getState();
         s.pause();
@@ -131,6 +158,7 @@ function attachListeners(audio: HTMLAudioElement) {
   };
 
   const onError = () => {
+    clearLoadingTimeout();
     const state = store.getState();
     state.setLoading(false);
     state.pause();
@@ -160,6 +188,7 @@ function attachListeners(audio: HTMLAudioElement) {
   audio.addEventListener("canplay", onCanPlay);
   audio.addEventListener("playing", onPlaying);
   audio.addEventListener("waiting", onWaiting);
+  audio.addEventListener("pause", onPause);
   audio.addEventListener("ended", onEnded);
   audio.addEventListener("error", onError);
 
@@ -168,7 +197,6 @@ function attachListeners(audio: HTMLAudioElement) {
 
 export function useAudioPlayer() {
   const currentSongIdRef = useRef<string>("");
-  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentIndex = usePlayerStore((s) => s.currentIndex);
   const playlist = usePlayerStore((s) => s.playlist);
@@ -185,7 +213,7 @@ export function useAudioPlayer() {
 
   /** Resolve audio URL for a song, with blob URL caching for local songs. */
   const resolveUrl = useCallback(async (song: Song): Promise<string> => {
-    if (song.source === "static") return song.audioUrl;
+    if (song.source === "static" || song.source === "supabase") return song.audioUrl;
     if (blobUrlCache.has(song.id)) {
       return blobUrlCache.get(song.id)!;
     }
@@ -206,10 +234,7 @@ export function useAudioPlayer() {
     const store = usePlayerStore.getState();
 
     // Clear previous loading timeout
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current);
-      loadingTimeoutRef.current = null;
-    }
+    clearLoadingTimeout();
 
     // Same song already loaded — just ensure it plays/resumes
     if (currentSongIdRef.current === song.id) {
@@ -244,7 +269,7 @@ export function useAudioPlayer() {
       audio.load();
 
       // 8-second loading timeout fallback
-      loadingTimeoutRef.current = setTimeout(() => {
+      loadingTimeoutHandle = setTimeout(() => {
         const s = usePlayerStore.getState();
         if (s.isLoading) {
           s.setLoading(false);

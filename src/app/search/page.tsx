@@ -1,16 +1,23 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SongList } from "@/components/music/SongList";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
-import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Search, X, Music2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { Song } from "@/data/songs.types";
 import { getLikedSongIds } from "@/lib/storage";
 
-type FilterType = "all" | "songs" | "artists" | "albums" | "local" | "static" | "liked";
+type FilterType =
+  | "all"
+  | "songs"
+  | "artists"
+  | "albums"
+  | "local"
+  | "static"
+  | "supabase"
+  | "liked";
 
 const FILTERS: { key: FilterType; label: string }[] = [
   { key: "all", label: "All" },
@@ -19,31 +26,15 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: "albums", label: "Albums" },
   { key: "liked", label: "Liked" },
   { key: "local", label: "Local Uploads" },
+  { key: "supabase", label: "Supabase" },
   { key: "static", label: "Built-in" },
 ];
 
 export default function SearchPage() {
-  const { allSongs, isLoading } = useSongLibrary();
+  const { allSongs, getCoverUrl } = useSongLibrary();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const load = async () => {
-      const map = new Map<string, string>();
-      for (const song of allSongs) {
-        if (song.source === "static") {
-          map.set(song.id, song.coverUrl);
-        } else {
-          const blob = await getCoverBlob(song.id);
-          map.set(song.id, blob ? createObjectUrl(blob) : "");
-        }
-      }
-      setCoverMap(map);
-    };
-    if (allSongs.length > 0) load();
-  }, [allSongs]);
 
   // Listen for liked song changes (from other tabs or likes/unlikes)
   useEffect(() => {
@@ -54,7 +45,6 @@ export default function SearchPage() {
       if (e.key === "aura-liked-songs") loadLiked();
     };
     window.addEventListener("storage", handleStorage);
-    // Custom event for same-tab like/unlike
     const handleLikeChange = () => loadLiked();
     window.addEventListener("aura-likes-changed", handleLikeChange);
 
@@ -64,10 +54,7 @@ export default function SearchPage() {
     };
   }, []);
 
-  const getCover = useCallback(
-    (song: Song) => coverMap.get(song.id) ?? "",
-    [coverMap]
-  );
+  const getCover = useCallback((song: Song) => getCoverUrl(song), [getCoverUrl]);
 
   const results = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -86,7 +73,6 @@ export default function SearchPage() {
       return searchable.includes(q);
     });
 
-    // Apply source filter
     switch (activeFilter) {
       case "local":
         filtered = filtered.filter((s) => s.source === "local");
@@ -94,11 +80,13 @@ export default function SearchPage() {
       case "static":
         filtered = filtered.filter((s) => s.source === "static");
         break;
+      case "supabase":
+        filtered = filtered.filter((s) => s.source === "supabase");
+        break;
       case "liked":
         filtered = filtered.filter((s) => likedIds.has(s.id));
         break;
       case "artists": {
-        // Group by artist, show unique artists
         const seen = new Set<string>();
         filtered = filtered.filter((s) => {
           const key = s.artist.toLowerCase();
@@ -132,11 +120,8 @@ export default function SearchPage() {
       <div className="min-h-screen px-4 md:px-8 py-6 md:py-8">
         {/* Search Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-4">
-            Search
-          </h1>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-4">Search</h1>
 
-          {/* Search Input */}
           <div className="relative max-w-xl">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted pointer-events-none" />
             <input
@@ -160,7 +145,6 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* Filters */}
         {query.trim() && (
           <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar pb-1">
             {FILTERS.map((f) => (
@@ -181,16 +165,13 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Results */}
         {!query.trim() ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-16 h-16 rounded-full bg-bg-elevated flex items-center justify-center">
               <Search className="w-7 h-7 text-text-muted" />
             </div>
             <div className="text-center">
-              <p className="text-sm text-text-secondary">
-                Find songs, artists, and albums
-              </p>
+              <p className="text-sm text-text-secondary">Find songs, artists, and albums</p>
             </div>
           </div>
         ) : results.length === 0 ? (
@@ -199,12 +180,8 @@ export default function SearchPage() {
               <Music2 className="w-7 h-7 text-text-muted" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-text-primary">
-                No results found
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                Try a different search term or filter
-              </p>
+              <p className="text-sm font-medium text-text-primary">No results found</p>
+              <p className="text-xs text-text-secondary mt-1">Try a different search term or filter</p>
             </div>
           </div>
         ) : (
@@ -221,3 +198,4 @@ export default function SearchPage() {
     </MainLayout>
   );
 }
+

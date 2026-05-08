@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { usePlayerStore } from "@/store/playerStore";
-import { getCoverBlob, createObjectUrl } from "@/lib/indexed-db";
 import { Sparkles, Play, Music2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { clsx } from "clsx";
@@ -20,49 +20,28 @@ interface MixSection {
 }
 
 export default function MadeForYouPage() {
-  const { allSongs, localSongs, isLoading } = useSongLibrary();
-  const playSong = usePlayerStore((s) => s.playSong);
+  const { allSongs, localSongs, isLoading, getCoverUrl } = useSongLibrary();
   const currentSong = usePlayerStore((s) => {
     const playlist = s.playlist;
     const idx = s.currentIndex;
     return idx >= 0 && idx < playlist.length ? playlist[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const toggle = usePlayerStore((s) => s.toggle);
+  const { playOrPause } = usePlaybackActions();
 
-  const [coverMap, setCoverMap] = useState<Map<string, string>>(new Map());
-
-  useEffect(() => {
-    const load = async () => {
-      const map = new Map<string, string>();
-      for (const song of allSongs) {
-        if (song.source === "static") {
-          map.set(song.id, song.coverUrl);
-        } else {
-          const blob = await getCoverBlob(song.id);
-          map.set(song.id, blob ? createObjectUrl(blob) : "");
-        }
-      }
-      setCoverMap(map);
-    };
-    if (allSongs.length > 0) load();
-  }, [allSongs]);
-
-  const getCover = useCallback(
-    (song: Song) => coverMap.get(song.id) ?? "",
-    [coverMap]
-  );
+  const getCover = useCallback((song: Song) => getCoverUrl(song), [getCoverUrl]);
 
   const mixes = useMemo((): MixSection[] => {
     const sections: MixSection[] = [];
 
-    // Recently Added (newest first by createdAt)
     const recentlyAdded = [...allSongs]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+      .sort((a, b) => {
+        const left = new Date(b.createdAt).getTime();
+        const right = new Date(a.createdAt).getTime();
+        return left - right;
+      })
       .slice(0, 10);
+
     if (recentlyAdded.length > 0) {
       sections.push({
         id: "recently-added",
@@ -73,7 +52,6 @@ export default function MadeForYouPage() {
       });
     }
 
-    // Local Uploads
     if (localSongs.length > 0) {
       sections.push({
         id: "local-uploads",
@@ -84,7 +62,6 @@ export default function MadeForYouPage() {
       });
     }
 
-    // Chill Mix -- pick songs with mood "chill" or slow-sounding titles
     const chillSongs = allSongs.filter((s) => {
       const mood = (s.mood ?? "").toLowerCase();
       const title = s.title.toLowerCase();
@@ -97,6 +74,7 @@ export default function MadeForYouPage() {
         s.album.toLowerCase().includes("slowed")
       );
     });
+
     if (chillSongs.length > 0) {
       sections.push({
         id: "chill-mix",
@@ -107,7 +85,6 @@ export default function MadeForYouPage() {
       });
     }
 
-    // High Energy Mix -- pick songs with mood "energy" or "sped up"
     const energySongs = allSongs.filter((s) => {
       const mood = (s.mood ?? "").toLowerCase();
       const title = s.title.toLowerCase();
@@ -121,6 +98,7 @@ export default function MadeForYouPage() {
         title.includes("mashup")
       );
     });
+
     if (energySongs.length > 0) {
       sections.push({
         id: "high-energy",
@@ -131,12 +109,10 @@ export default function MadeForYouPage() {
       });
     }
 
-    // Unknown Artist Mix
     const unknownArtistSongs = allSongs.filter(
-      (s) =>
-        s.artist.toLowerCase().includes("unknown") ||
-        s.artist.trim() === ""
+      (s) => s.artist.toLowerCase().includes("unknown") || s.artist.trim() === ""
     );
+
     if (unknownArtistSongs.length > 0) {
       sections.push({
         id: "discover",
@@ -147,7 +123,6 @@ export default function MadeForYouPage() {
       });
     }
 
-    // Fallback: if only 1 or fewer sections, add a "Quick Mix" of all songs shuffled
     if (sections.length < 2 && allSongs.length > 0) {
       const shuffled = [...allSongs].sort(() => Math.random() - 0.5);
       sections.push({
@@ -163,11 +138,7 @@ export default function MadeForYouPage() {
   }, [allSongs, localSongs]);
 
   const handlePlaySong = (song: Song, sectionSongs: Song[]) => {
-    if (currentSong?.id === song.id) {
-      toggle();
-    } else {
-      playSong(song, sectionSongs);
-    }
+    playOrPause(song, sectionSongs);
   };
 
   if (isLoading) {
@@ -183,22 +154,16 @@ export default function MadeForYouPage() {
   return (
     <MainLayout>
       <div className="min-h-screen px-4 md:px-8 py-6 md:py-8">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent to-purple-900 flex items-center justify-center shrink-0 shadow-lg shadow-accent/20">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-text-primary tracking-tight">
-              Made for You
-            </h1>
-            <p className="text-sm text-text-secondary mt-0.5">
-              Personalized mixes based on your library
-            </p>
+            <h1 className="text-2xl font-bold text-text-primary tracking-tight">Made for You</h1>
+            <p className="text-sm text-text-secondary mt-0.5">Personalized mixes based on your library</p>
           </div>
         </div>
 
-        {/* Mix Sections */}
         {mixes.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -209,12 +174,8 @@ export default function MadeForYouPage() {
               <Sparkles className="w-8 h-8 text-text-muted" />
             </div>
             <div className="text-center max-w-xs">
-              <p className="text-sm font-medium text-text-primary">
-                Add more songs to get personalized mixes
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                Upload songs or browse your library to get started
-              </p>
+              <p className="text-sm font-medium text-text-primary">Add more songs to get personalized mixes</p>
+              <p className="text-xs text-text-secondary mt-1">Upload songs or browse your library to get started</p>
             </div>
           </motion.div>
         ) : (
@@ -226,7 +187,6 @@ export default function MadeForYouPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: sectionIdx * 0.08, duration: 0.3 }}
               >
-                {/* Section Header */}
                 <div className="flex items-center gap-3 mb-4">
                   <div
                     className={clsx(
@@ -237,16 +197,13 @@ export default function MadeForYouPage() {
                     <Music2 className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-text-primary tracking-tight">
-                      {mix.title}
-                    </h2>
+                    <h2 className="text-lg font-semibold text-text-primary tracking-tight">{mix.title}</h2>
                     <p className="text-xs text-text-secondary">
                       {mix.description} · {mix.songs.length} songs
                     </p>
                   </div>
                 </div>
 
-                {/* Horizontal scroll cards */}
                 <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
                   {mix.songs.map((song) => {
                     const isCurrent = currentSong?.id === song.id;
@@ -271,13 +228,10 @@ export default function MadeForYouPage() {
                             sizes="160px"
                             className="w-full h-full"
                           />
-                          {/* Play overlay */}
                           <div
                             className={clsx(
                               "absolute inset-0 flex items-center justify-center transition-opacity z-20",
-                              isCurrent
-                                ? "opacity-100"
-                                : "opacity-0 group-hover:opacity-100"
+                              isCurrent ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                             )}
                           >
                             <div className="w-10 h-10 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
@@ -288,10 +242,7 @@ export default function MadeForYouPage() {
                                   <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-3" />
                                 </span>
                               ) : (
-                                <Play
-                                  className="w-4 h-4 text-white ml-0.5"
-                                  fill="currentColor"
-                                />
+                                <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
                               )}
                             </div>
                           </div>
@@ -309,9 +260,7 @@ export default function MadeForYouPage() {
                         >
                           {song.title}
                         </p>
-                        <p className="text-xs text-text-secondary truncate mt-0.5">
-                          {song.artist}
-                        </p>
+                        <p className="text-xs text-text-secondary truncate mt-0.5">{song.artist}</p>
                       </button>
                     );
                   })}
@@ -326,3 +275,4 @@ export default function MadeForYouPage() {
     </MainLayout>
   );
 }
+

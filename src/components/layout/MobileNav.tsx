@@ -30,6 +30,7 @@ export function MobileNav({ onAddSong }: MobileNavProps) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={clsx(
                 "flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] min-h-[48px] justify-center transition-colors",
                 isActive
@@ -53,6 +54,7 @@ export function MobileNav({ onAddSong }: MobileNavProps) {
         <button
           type="button"
           onClick={onAddSong}
+          aria-label="Add song"
           className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] min-h-[48px] justify-center text-text-muted"
         >
           <div className="w-5 h-5 rounded-md bg-bg-elevated border border-border flex items-center justify-center">
