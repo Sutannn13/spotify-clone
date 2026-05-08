@@ -100,7 +100,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     // If deleting the currently playing song, move to next or stop
     if (current?.id === songToDelete.id) {
       if (store.playlist.length > 1) {
-        store.next();
+        store.next({ manual: true });
       } else {
         store.pause();
       }

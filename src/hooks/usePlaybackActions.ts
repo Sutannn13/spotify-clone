@@ -17,77 +17,61 @@ export function usePlaybackActions() {
    * Universal play-or-pause for any song click.
    *
    * Behavior:
-   * - Song is NOT the current song → play it immediately (shuffle does NOT apply)
+   * - Song is NOT the current → play it immediately (shuffle does NOT apply)
    * - Song IS current and playing → pause (no time reset)
    * - Song IS current and paused → resume (no time reset)
+   *
+   * Uses store.playSong which has smart ID-based playlist comparison,
+   * so navigation between pages does NOT restart playback for the same song.
    */
   const playOrPause = useCallback((song: Song, list?: Song[]) => {
     const state = store.getState();
-    const listToUse = list ?? state.playlist;
     const currentIdx = state.currentIndex;
+    const currentSong = currentIdx >= 0 && currentIdx < state.playlist.length
+      ? state.playlist[currentIdx]
+      : null;
+
     const isCurrent =
-      currentIdx >= 0 &&
-      currentIdx < state.playlist.length &&
-      state.playlist[currentIdx]?.id === song.id &&
-      state.playlist === listToUse;
+      currentSong?.id === song.id &&
+      state.playlist[currentIdx]?.id === song.id;
 
     if (!isCurrent) {
-      // New song — always play from index
-      const index = listToUse.findIndex((s) => s.id === song.id);
-
-      if (index === -1 && state.playlist.length > 0) {
-        // Not in given list but playlist exists — prepend
-        store.setState({
-          playlist: [song, ...state.playlist],
-          currentIndex: 0,
-          isPlaying: true,
-          currentTime: 0,
-          isLoading: true,
-          playbackError: null,
-        });
-      } else if (index === -1) {
-        store.setState({
-          playlist: [song],
-          currentIndex: 0,
-          isPlaying: true,
-          currentTime: 0,
-          isLoading: true,
-          playbackError: null,
-        });
-      } else {
-        store.setState({
-          playlist: listToUse,
-          currentIndex: index,
-          isPlaying: true,
-          currentTime: 0,
-          isLoading: true,
-          playbackError: null,
-        });
-      }
+      // New or different song — play it, reset repeat
+      store.getState().playSong(song, list);
       trackRecentPlay(song.id);
       return;
     }
 
-    // Current song — toggle play/pause, no time reset, no loading
+    // Same song — toggle play/pause (no src reload, no time reset)
     store.getState().toggle();
   }, []);
 
+  /**
+   * User pressed next — always resets repeat, plays next immediately.
+   */
   const playNext = useCallback(() => {
-    store.getState().next();
+    store.getState().next({ manual: true });
   }, []);
 
+  /**
+   * User pressed previous — always resets repeat, plays previous immediately.
+   * If currentTime > 3s, restarts the current song first.
+   */
   const playPrev = useCallback(() => {
-    store.getState().prev();
+    store.getState().prev({ manual: true });
   }, []);
 
+  /** User wants to pause directly. */
   const pause = useCallback(() => {
     store.getState().pause();
   }, []);
 
+  /** User wants to resume directly. */
   const resume = useCallback(() => {
     store.getState().play();
   }, []);
 
+  /** Toggle play/pause. */
   const toggle = useCallback(() => {
     store.getState().toggle();
   }, []);

@@ -7,6 +7,7 @@ import { toggleLikeSong } from "@/lib/storage";
 /**
  * Keyboard shortcuts for the music player.
  * Only active when no input/textarea is focused.
+ * Arrow keys are treated as manual navigation — they reset repeat mode.
  */
 export function useKeyboardShortcuts() {
   const toggle = usePlayerStore((s) => s.toggle);
@@ -19,7 +20,7 @@ export function useKeyboardShortcuts() {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Skip if typing in input/textarea
+      // Skip if typing in an input/textarea/contenteditable
       const target = e.target as HTMLElement;
       if (
         target.tagName === "INPUT" ||
@@ -36,11 +37,11 @@ export function useKeyboardShortcuts() {
           break;
         case "ArrowRight":
           e.preventDefault();
-          next();
+          next({ manual: true });
           break;
         case "ArrowLeft":
           e.preventDefault();
-          prev();
+          prev({ manual: true });
           break;
         case "m":
         case "M":
@@ -58,17 +59,11 @@ export function useKeyboardShortcuts() {
         }
         case "/":
           e.preventDefault();
-          // Focus search input if on page
-          const searchInput = document.querySelector<HTMLInputElement>(
-            'input[type="text"], input[placeholder*="Search"]'
-          );
-          searchInput?.focus();
+          (document.querySelector<HTMLInputElement>('input[type="text"], input[placeholder*="Search"]'))?.focus();
           break;
         case "Escape":
           e.preventDefault();
-          if (isFullscreen) {
-            setFullscreen(false);
-          }
+          if (isFullscreen) setFullscreen(false);
           break;
       }
     },

@@ -29,6 +29,11 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
 
   const isLarge = size === "large";
 
+  const repeatLabel =
+    repeatMode === "off" ? "Repeat off"
+    : repeatMode === "once" ? "Repeat current song once"
+    : "Repeat current song continuously";
+
   return (
     <div className="flex items-center gap-1">
       {/* Shuffle */}
@@ -47,10 +52,10 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
         <Shuffle className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
       </button>
 
-      {/* Prev */}
+      {/* Prev — manual navigation resets repeat */}
       <button
         type="button"
-        onClick={prev}
+        onClick={() => prev({ manual: true })}
         disabled={playlist.length === 0}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-colors",
@@ -112,10 +117,10 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
         )}
       </button>
 
-      {/* Next */}
+      {/* Next — manual navigation resets repeat */}
       <button
         type="button"
-        onClick={next}
+        onClick={() => next({ manual: true })}
         disabled={playlist.length === 0}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-colors",
@@ -128,25 +133,28 @@ export function PlayerControls({ size = "default" }: { size?: "default" | "large
         <SkipForward className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
       </button>
 
-      {/* Repeat — use aria-label since repeat has 3 modes, not a binary toggle */}
+      {/* Repeat — per-song: off / once / forever */}
       <button
         type="button"
         onClick={cycleRepeat}
+        disabled={playlist.length === 0}
         className={clsx(
           "w-9 h-9 flex items-center justify-center rounded-full transition-all relative",
-          repeatMode !== "none"
-            ? "text-accent"
-            : "text-text-secondary hover:text-text-primary"
+          playlist.length === 0
+            ? "text-text-muted cursor-not-allowed"
+            : repeatMode !== "off"
+              ? "text-accent"
+              : "text-text-secondary hover:text-text-primary"
         )}
-        aria-label={`Repeat: ${repeatMode}`}
+        aria-label={repeatLabel}
       >
-        {repeatMode === "one" ? (
+        {repeatMode === "once" ? (
           <Repeat1 className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
         ) : (
           <Repeat className={clsx(isLarge ? "w-5 h-5" : "w-4 h-4")} />
         )}
-        {repeatMode === "one" && (
-          <span className="absolute text-[9px] font-semibold leading-none">
+        {repeatMode === "once" && (
+          <span className="absolute text-[9px] font-semibold leading-none bottom-0.5 right-0.5">
             1
           </span>
         )}

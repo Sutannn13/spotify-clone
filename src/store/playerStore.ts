@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Song } from "@/data/songs.types";
 
-export type RepeatMode = "none" | "one" | "all";
+export type RepeatMode = "off" | "once" | "forever";
 export type SleepTimerOption =
   | "off"
   | "5"
@@ -21,14 +21,13 @@ interface PlayerState {
   volume: number;
   isMuted: boolean;
   repeatMode: RepeatMode;
+  repeatSongId: string | null; // which song the repeat mode applies to
   isShuffled: boolean;
   isFullscreen: boolean;
   isLoading: boolean;
   playbackError: string | null;
-  // Queue
   queue: Song[];
   queuePosition: number;
-  // Sleep timer
   sleepTimer: SleepTimerOption;
   sleepTimerEndsAt: number | null;
 }
@@ -38,12 +37,13 @@ interface PlayerActions {
   play: () => void;
   pause: () => void;
   toggle: () => void;
-  next: () => void;
-  prev: () => void;
+  next: (opts?: { manual?: boolean }) => void;
+  prev: (opts?: { manual?: boolean }) => void;
   seek: (time: number) => void;
   setVolume: (vol: number) => void;
   toggleMute: () => void;
   cycleRepeat: () => void;
+  resetRepeat: () => void;
   toggleShuffle: () => void;
   setFullscreen: (val: boolean) => void;
   setCurrentTime: (time: number) => void;
@@ -53,13 +53,11 @@ interface PlayerActions {
   onSongEnd: () => void;
   getCurrentSong: () => Song | null;
   setPlaylist: (songs: Song[]) => void;
-  // Queue
   setQueue: (songs: Song[], position?: number) => void;
   addToQueue: (song: Song) => void;
   removeFromQueue: (songId: string) => void;
   clearQueue: () => void;
   moveQueueItem: (fromIndex: number, toIndex: number) => void;
-  // Sleep timer
   setSleepTimer: (option: SleepTimerOption) => void;
   clearSleepTimer: () => void;
   checkSleepTimer: () => void;
@@ -67,40 +65,32 @@ interface PlayerActions {
 
 type PlayerStore = PlayerState & PlayerActions;
 
-/** Returns the next index considering shuffle, repeatMode, and end-of-playlist. */
-function computeNextIndex(
+/** Compare two playlists by song IDs. Returns true if they contain the same songs in the same order. */
+function playlistsMatchById(a: Song[], b: Song[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return false;
+  }
+  return true;
+}
+
+/** Returns the next index for autoplay (shuffle/sequential), NOT for repeat. */
+function computeAutoplayNext(
   playlist: Song[],
   currentIndex: number,
-  repeatMode: RepeatMode,
   isShuffled: boolean
 ): number | null {
   if (playlist.length === 0) return null;
-
-  // Repeat one: just restart this song (caller handles seek + play)
-  if (repeatMode === "one") return currentIndex;
-
-  let nextIndex: number;
-
   if (isShuffled) {
     const available = playlist
       .map((_, i) => i)
       .filter((i) => i !== currentIndex);
-    nextIndex =
-      available.length > 0
-        ? available[Math.floor(Math.random() * available.length)]
-        : currentIndex;
-  } else {
-    nextIndex = currentIndex + 1;
-    if (nextIndex >= playlist.length) {
-      if (repeatMode === "all") {
-        nextIndex = 0;
-      } else {
-        return null; // end of playlist, stop
-      }
-    }
+    return available.length > 0
+      ? available[Math.floor(Math.random() * available.length)]
+      : currentIndex;
   }
-
-  return nextIndex;
+  const next = currentIndex + 1;
+  return next < playlist.length ? next : null;
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -111,7 +101,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   duration: 0,
   volume: 0.8,
   isMuted: false,
-  repeatMode: "none",
+  repeatMode: "off",
+  repeatSongId: null,
   isShuffled: false,
   isFullscreen: false,
   isLoading: false,
@@ -121,19 +112,44 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   sleepTimer: "off",
   sleepTimerEndsAt: null,
 
-  setPlaylist: (songs) => set({ playlist: songs }),
+  /**
+   * Smart playlist update — preserves currentIndex/currentTime if the current song
+   * still exists in the new playlist. Only resets on song removal.
+   */
+  setPlaylist: (songs) => {
+    const { currentIndex, playlist: oldPlaylist } = get();
+    const currentSong = currentIndex >= 0 && currentIndex < oldPlaylist.length
+      ? oldPlaylist[currentIndex]
+      : null;
+
+    if (currentSong) {
+      const newIndex = songs.findIndex((s) => s.id === currentSong.id);
+      if (newIndex !== -1) {
+        // Current song still exists — preserve its position, don't reset time/playback
+        set({ playlist: songs, currentIndex: newIndex });
+        return;
+      }
+    }
+    // Current song removed or no current song
+    set({ playlist: songs, currentIndex: -1, isPlaying: false, currentTime: 0 });
+  },
 
   /**
-   * Play a specific song. Shuffle NEVER affects which song is played here.
-   * Only next() respects shuffle.
+   * Play a song. Direct user clicks always play the exact song — shuffle never overrides.
+   * Repeat is reset because a new song was selected.
    */
   playSong: (song, playlist) => {
     const state = get();
     const list = playlist ?? state.playlist;
-    let index = list.findIndex((s) => s.id === song.id);
 
-    // Not found in given list — prepend to playlist
-    if (index === -1 && list.length > 0) {
+    // Reset repeat when selecting a different song
+    const wasRepeatForSameSong =
+      state.repeatMode !== "off" && state.repeatSongId === song.id;
+
+    const listIndex = list.findIndex((s) => s.id === song.id);
+
+    // Song not in the given list — prepend it
+    if (listIndex === -1) {
       set({
         playlist: [song, ...list],
         currentIndex: 0,
@@ -141,35 +157,30 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         currentTime: 0,
         isLoading: true,
         playbackError: null,
+        repeatMode: "off",
+        repeatSongId: null,
       });
       return;
     }
 
-    if (index === -1) {
-      set({
-        playlist: [song],
-        currentIndex: 0,
-        isPlaying: true,
-        currentTime: 0,
-        isLoading: true,
-        playbackError: null,
-      });
-      return;
-    }
-
-    // Same song, same playlist — just resume
-    if (state.currentIndex === index && state.playlist === list) {
+    // Same song, same playlist array content — just resume
+    if (
+      listIndex === state.currentIndex &&
+      playlistsMatchById(list, state.playlist)
+    ) {
       set({ isPlaying: true, playbackError: null });
       return;
     }
 
     set({
       playlist: list,
-      currentIndex: index,
+      currentIndex: listIndex,
       isPlaying: true,
       currentTime: 0,
       isLoading: true,
       playbackError: null,
+      repeatMode: "off",
+      repeatSongId: null,
     });
   },
 
@@ -181,24 +192,56 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       playbackError: state.isPlaying ? state.playbackError : null,
     })),
 
-  next: () => {
-    const { playlist, currentIndex, repeatMode, isShuffled } = get();
-    const nextIdx = computeNextIndex(playlist, currentIndex, repeatMode, isShuffled);
+  /**
+   * next({ manual: true }) — user pressed next. Always resets repeat.
+   * next() — autoplay. Does NOT reset repeat.
+   */
+  next: (opts) => {
+    const { playlist, currentIndex, repeatMode, repeatSongId, isShuffled } = get();
+    if (playlist.length === 0) return;
 
-    if (nextIdx === null) {
-      // End of non-looping playlist
-      set({ isPlaying: false });
+    const isManual = opts?.manual === true;
+
+    // Manual navigation always resets repeat
+    if (isManual) {
+      if (repeatMode !== "off") {
+        set({ repeatMode: "off", repeatSongId: null });
+      }
+      const autoplayNext = computeAutoplayNext(playlist, currentIndex, isShuffled);
+      if (autoplayNext === null) {
+        set({ isPlaying: false });
+        return;
+      }
+      set({
+        currentIndex: autoplayNext,
+        currentTime: 0,
+        isPlaying: true,
+        isLoading: true,
+        playbackError: null,
+      });
       return;
     }
 
-    // repeatMode === "one" means just restart (seek handled by audio hook)
-    if (repeatMode === "one") {
+    // Autoplay path
+    if (repeatMode === "once" && repeatSongId === playlist[currentIndex]?.id) {
+      // "once" was consumed — go to autoplay next, reset repeat
+      set({ repeatMode: "off", repeatSongId: null, currentTime: 0, isPlaying: true, isLoading: false });
+      return;
+    }
+
+    if (repeatMode === "forever" && repeatSongId === playlist[currentIndex]?.id) {
+      // Restart same song
       set({ currentTime: 0, isPlaying: true, isLoading: false, playbackError: null });
       return;
     }
 
+    const autoplayNext = computeAutoplayNext(playlist, currentIndex, isShuffled);
+    if (autoplayNext === null) {
+      set({ isPlaying: false });
+      return;
+    }
     set({
-      currentIndex: nextIdx,
+      currentIndex: autoplayNext,
       currentTime: 0,
       isPlaying: true,
       isLoading: true,
@@ -206,18 +249,29 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
   },
 
-  prev: () => {
+  /**
+   * prev({ manual: true }) — user pressed prev. Resets repeat.
+   * prev() — autoplay navigation. Does NOT reset repeat.
+   */
+  prev: (opts) => {
     const { currentTime, currentIndex, playlist } = get();
     if (playlist.length === 0) return;
 
-    // Restart current song if more than 3s in
+    const isManual = opts?.manual === true;
+
     if (currentTime > 3) {
+      // Restart current song
       set({ currentTime: 0, playbackError: null });
       return;
     }
 
     const prevIndex =
       currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1;
+
+    if (isManual && get().repeatMode !== "off") {
+      set({ repeatMode: "off", repeatSongId: null });
+    }
+
     set({
       currentIndex: prevIndex,
       currentTime: 0,
@@ -234,12 +288,40 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
 
-  cycleRepeat: () =>
-    set((state) => {
-      const modes: RepeatMode[] = ["none", "all", "one"];
-      const currentIdx = modes.indexOf(state.repeatMode);
-      return { repeatMode: modes[(currentIdx + 1) % modes.length] };
-    }),
+  /**
+   * Cycle repeat for the CURRENT song only.
+   * off → once → forever → off
+   * If cycling for a different song, start from "once".
+   */
+  cycleRepeat: () => {
+    const { repeatMode, repeatSongId, currentIndex, playlist } = get();
+    const currentSongId = currentIndex >= 0 && currentIndex < playlist.length
+      ? playlist[currentIndex].id
+      : null;
+
+    if (!currentSongId) return;
+
+    const isForCurrentSong = repeatSongId === currentSongId;
+
+    if (!isForCurrentSong) {
+      // First press for a new song — start at "once"
+      set({ repeatMode: "once", repeatSongId: currentSongId });
+      return;
+    }
+
+    // Cycle: off → once → forever → off
+    const next: RepeatMode =
+      repeatMode === "off" ? "once"
+      : repeatMode === "once" ? "forever"
+      : "off";
+    set({
+      repeatMode: next,
+      repeatSongId: next === "off" ? null : currentSongId,
+    });
+  },
+
+  /** Explicitly clear repeat mode. Called when navigating away or changing songs. */
+  resetRepeat: () => set({ repeatMode: "off", repeatSongId: null }),
 
   toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
 
@@ -251,13 +333,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   setPlaybackError: (error) => set({ playbackError: error }),
 
   /**
-   * Called by the audio element's `ended` event.
-   * - Handles sleep-timer "end-of-song" once.
-   * - Handles repeat-one: seek to 0 and restart.
-   * - Otherwise calls next().
+   * Audio element ended event.
+   * - Handles sleep-timer end-of-song.
+   * - Handles "once": repeat once, then reset to off.
+   * - Handles "forever": repeat same song indefinitely.
+   * - Otherwise: autoplay next.
    */
   onSongEnd: () => {
-    const { repeatMode, sleepTimer, pause } = get();
+    const { repeatMode, repeatSongId, currentIndex, playlist, sleepTimer, pause } = get();
+    const currentSongId = currentIndex >= 0 && currentIndex < playlist.length
+      ? playlist[currentIndex].id
+      : null;
 
     if (sleepTimer === "end-of-song") {
       pause();
@@ -265,8 +351,21 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return;
     }
 
-    if (repeatMode === "one") {
-      // Seek to 0 and restart — isPlaying stays true so audio hook auto-plays
+    if (repeatMode === "once" && repeatSongId === currentSongId) {
+      // Consume the "once" — restart same song once more
+      set({
+        currentTime: 0,
+        isPlaying: true,
+        isLoading: false,
+        playbackError: null,
+        repeatMode: "off",
+        repeatSongId: null,
+      });
+      return;
+    }
+
+    if (repeatMode === "forever" && repeatSongId === currentSongId) {
+      // Restart same song
       set({ currentTime: 0, isPlaying: true, isLoading: false, playbackError: null });
       return;
     }
