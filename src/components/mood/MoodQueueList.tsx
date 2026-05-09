@@ -2,6 +2,7 @@
 
 import { type Song } from "@/data/songs.types";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { usePlayerStore } from "@/store/playerStore";
 import { Play } from "lucide-react";
 import { clsx } from "clsx";
@@ -16,25 +17,23 @@ function formatDuration(seconds: number): string {
 
 interface MoodQueueListProps {
   songs: Song[];
-  onPlay: (song: Song) => void;
+  /** Called when user clicks a song — provides the full mood queue as playlist. */
+  onPlay: (song: Song, queue: Song[]) => void;
 }
 
 export function MoodQueueList({ songs, onPlay }: MoodQueueListProps) {
-  const getCoverUrl = useSongLibrary((s) => s.getCoverUrl);
+  const { getCoverUrl } = useSongLibrary();
+  const { playOrPause } = usePlaybackActions();
   const currentSong = usePlayerStore((s) => {
     const idx = s.currentIndex;
     const pl = s.playlist;
     return idx >= 0 && idx < pl.length ? pl[idx] : null;
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const toggle = usePlayerStore((s) => s.toggle);
 
   const handlePlay = (song: Song) => {
-    if (currentSong?.id === song.id) {
-      toggle();
-    } else {
-      onPlay(song);
-    }
+    playOrPause(song, songs);
+    onPlay(song, songs);
   };
 
   return (
@@ -48,12 +47,12 @@ export function MoodQueueList({ songs, onPlay }: MoodQueueListProps) {
             key={song.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.03, duration: 0.2 }}
+            transition={{ delay: Math.min(index * 0.03, 0.6), duration: 0.2 }}
             className={clsx(
-              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-              "hover:bg-bg-elevated/50",
-              isActive && "bg-bg-elevated"
+              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group cursor-pointer",
+              isActive ? "bg-bg-elevated" : "hover:bg-bg-elevated/50"
             )}
+            onClick={() => handlePlay(song)}
           >
             {/* Number / Play indicator */}
             <div className="w-8 flex items-center justify-center shrink-0">
@@ -72,8 +71,11 @@ export function MoodQueueList({ songs, onPlay }: MoodQueueListProps) {
                 <button
                   type="button"
                   aria-label={`Play ${song.title}`}
-                  onClick={() => handlePlay(song)}
                   className="hidden group-hover:flex w-6 h-6 items-center justify-center rounded-full bg-accent text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlay(song);
+                  }}
                 >
                   <Play className="w-3 h-3" fill="currentColor" />
                 </button>

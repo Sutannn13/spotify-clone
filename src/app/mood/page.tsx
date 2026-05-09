@@ -99,7 +99,7 @@ export default function MoodQueuePage() {
             ) : (
               <MoodQueueList
                 songs={moodQueue}
-                onPlay={(song) => playSong(song, moodQueue)}
+                onPlay={(song, queue) => playSong(song, queue)}
               />
             )}
           </section>
