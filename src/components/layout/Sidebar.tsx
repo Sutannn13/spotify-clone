@@ -12,6 +12,7 @@ import {
   Heart,
   Clock,
   Sparkles,
+  Brain,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -22,6 +23,12 @@ const navItems = [
 ];
 
 const quickAccessItems = [
+  {
+    href: "/mood",
+    label: "Mood Queue",
+    icon: Brain,
+    gradient: "from-violet-600 to-purple-900",
+  },
   {
     href: "/made-for-you",
     label: "Made for You",
