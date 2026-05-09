@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useCallback } from "react";
-import { MainLayout } from "@/components/layout/MainLayout";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
@@ -143,136 +142,131 @@ export default function MadeForYouPage() {
 
   if (isLoading) {
     return (
-      <MainLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-        </div>
-      </MainLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
     );
   }
 
   return (
-    <MainLayout>
-      <div className="min-h-screen px-4 md:px-8 py-6 md:py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent to-purple-900 flex items-center justify-center shrink-0 shadow-lg shadow-accent/20">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary tracking-tight">Made for You</h1>
-            <p className="text-sm text-text-secondary mt-0.5">Personalized mixes based on your library</p>
-          </div>
+    <div className="min-h-screen px-4 md:px-8 py-6 md:py-8">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent to-purple-900 flex items-center justify-center shrink-0 shadow-lg shadow-accent/20">
+          <Sparkles className="w-6 h-6 text-white" />
         </div>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">Made for You</h1>
+          <p className="text-sm text-text-secondary mt-0.5">Personalized mixes based on your library</p>
+        </div>
+      </div>
 
-        {mixes.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24 gap-4"
-          >
-            <div className="w-20 h-20 rounded-full bg-bg-elevated flex items-center justify-center border border-border">
-              <Sparkles className="w-8 h-8 text-text-muted" />
-            </div>
-            <div className="text-center max-w-xs">
-              <p className="text-sm font-medium text-text-primary">Add more songs to get personalized mixes</p>
-              <p className="text-xs text-text-secondary mt-1">Upload songs or browse your library to get started</p>
-            </div>
-          </motion.div>
-        ) : (
-          <div className="space-y-10">
-            {mixes.map((mix, sectionIdx) => (
-              <motion.section
-                key={mix.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: sectionIdx * 0.08, duration: 0.3 }}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className={clsx(
-                      "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center shrink-0",
-                      mix.gradient
-                    )}
-                  >
-                    <Music2 className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-text-primary tracking-tight">{mix.title}</h2>
-                    <p className="text-xs text-text-secondary">
-                      {mix.description} · {mix.songs.length} songs
-                    </p>
-                  </div>
+      {mixes.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-24 gap-4"
+        >
+          <div className="w-20 h-20 rounded-full bg-bg-elevated flex items-center justify-center border border-border">
+            <Sparkles className="w-8 h-8 text-text-muted" />
+          </div>
+          <div className="text-center max-w-xs">
+            <p className="text-sm font-medium text-text-primary">Add more songs to get personalized mixes</p>
+            <p className="text-xs text-text-secondary mt-1">Upload songs or browse your library to get started</p>
+          </div>
+        </motion.div>
+      ) : (
+        <div className="space-y-10">
+          {mixes.map((mix, sectionIdx) => (
+            <motion.section
+              key={mix.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: sectionIdx * 0.08, duration: 0.3 }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className={clsx(
+                    "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center shrink-0",
+                    mix.gradient
+                  )}
+                >
+                  <Music2 className="w-4 h-4 text-white" />
                 </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary tracking-tight">{mix.title}</h2>
+                  <p className="text-xs text-text-secondary">
+                    {mix.description} · {mix.songs.length} songs
+                  </p>
+                </div>
+              </div>
 
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
-                  {mix.songs.map((song) => {
-                    const isCurrent = currentSong?.id === song.id;
-                    const isCurrentPlaying = isCurrent && isPlaying;
-                    const cover = getCover(song);
+              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                {mix.songs.map((song) => {
+                  const isCurrent = currentSong?.id === song.id;
+                  const isCurrentPlaying = isCurrent && isPlaying;
+                  const cover = getCover(song);
 
-                    return (
-                      <button
-                        key={song.id}
-                        type="button"
-                        onClick={() => handlePlaySong(song, mix.songs)}
-                        className="group flex flex-col shrink-0 w-36 sm:w-40 text-left"
-                      >
-                        <div className="relative aspect-square rounded-lg overflow-hidden bg-bg-hover mb-2.5">
-                          <PremiumCover
-                            src={cover}
-                            alt={`${song.title} cover`}
-                            size="xl"
-                            rounded="lg"
-                            tilt
-                            playing={isCurrentPlaying}
-                            sizes="160px"
-                            className="w-full h-full"
-                          />
-                          <div
-                            className={clsx(
-                              "absolute inset-0 flex items-center justify-center transition-opacity z-20",
-                              isCurrent ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                            )}
-                          >
-                            <div className="w-10 h-10 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                              {isCurrentPlaying ? (
-                                <span className="flex items-end gap-0.5">
-                                  <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-1" />
-                                  <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-2" />
-                                  <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-3" />
-                                </span>
-                              ) : (
-                                <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
-                              )}
-                            </div>
-                          </div>
-                          {isCurrent && !isCurrentPlaying && (
-                            <div className="absolute bottom-1.5 right-1.5 z-20">
-                              <div className="w-2 h-2 rounded-full bg-accent" />
-                            </div>
-                          )}
-                        </div>
-                        <p
+                  return (
+                    <button
+                      key={song.id}
+                      type="button"
+                      onClick={() => handlePlaySong(song, mix.songs)}
+                      className="group flex flex-col shrink-0 w-36 sm:w-40 text-left"
+                    >
+                      <div className="relative aspect-square rounded-lg overflow-hidden bg-bg-hover mb-2.5">
+                        <PremiumCover
+                          src={cover}
+                          alt={`${song.title} cover`}
+                          size="xl"
+                          rounded="lg"
+                          tilt
+                          playing={isCurrentPlaying}
+                          sizes="160px"
+                          className="w-full h-full"
+                        />
+                        <div
                           className={clsx(
-                            "text-sm font-medium truncate leading-tight",
-                            isCurrent ? "text-accent" : "text-text-primary"
+                            "absolute inset-0 flex items-center justify-center transition-opacity z-20",
+                            isCurrent ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           )}
                         >
-                          {song.title}
-                        </p>
-                        <p className="text-xs text-text-secondary truncate mt-0.5">{song.artist}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.section>
-            ))}
-          </div>
-        )}
+                          <div className="w-10 h-10 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
+                            {isCurrentPlaying ? (
+                              <span className="flex items-end gap-0.5">
+                                <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-1" />
+                                <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-2" />
+                                <span className="w-0.5 h-2.5 bg-white rounded-full animate-eq-3" />
+                              </span>
+                            ) : (
+                              <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
+                            )}
+                          </div>
+                        </div>
+                        {isCurrent && !isCurrentPlaying && (
+                          <div className="absolute bottom-1.5 right-1.5 z-20">
+                            <div className="w-2 h-2 rounded-full bg-accent" />
+                          </div>
+                        )}
+                      </div>
+                      <p
+                        className={clsx(
+                          "text-sm font-medium truncate leading-tight",
+                          isCurrent ? "text-accent" : "text-text-primary"
+                        )}
+                      >
+                        {song.title}
+                      </p>
+                      <p className="text-xs text-text-secondary truncate mt-0.5">{song.artist}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.section>
+          ))}
+        </div>
+      )}
 
-        <div className="h-8" />
-      </div>
-    </MainLayout>
+      <div className="h-8" />
+    </div>
   );
 }
-

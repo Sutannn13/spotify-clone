@@ -197,9 +197,9 @@ function attachListeners(audio: HTMLAudioElement) {
 
 export function useAudioPlayer() {
   const currentSongIdRef = useRef<string>("");
+  const loadedUrlRef = useRef<string>("");
 
   const currentIndex = usePlayerStore((s) => s.currentIndex);
-  const playlist = usePlayerStore((s) => s.playlist);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
@@ -228,10 +228,12 @@ export function useAudioPlayer() {
 
   // Load new song when currentIndex changes
   useEffect(() => {
-    if (currentIndex < 0 || currentIndex >= playlist.length) return;
-
-    const song: Song = playlist[currentIndex];
     const store = usePlayerStore.getState();
+    const { currentIndex: idx, playlist } = store;
+
+    if (idx < 0 || idx >= playlist.length) return;
+
+    const song: Song = playlist[idx];
 
     // Clear previous loading timeout
     clearLoadingTimeout();
@@ -264,9 +266,13 @@ export function useAudioPlayer() {
         return;
       }
 
-      currentSongIdRef.current = song.id;
-      audio.src = url;
-      audio.load();
+      // Only reload if URL actually differs — avoid audio.load() on same song/navigation
+      if (audio.src !== url) {
+        currentSongIdRef.current = song.id;
+        loadedUrlRef.current = url;
+        audio.src = url;
+        audio.load();
+      }
 
       // 8-second loading timeout fallback
       loadingTimeoutHandle = setTimeout(() => {
@@ -286,7 +292,7 @@ export function useAudioPlayer() {
     };
 
     load();
-  }, [currentIndex, playlist, resolveUrl]);
+  }, [currentIndex, resolveUrl]); // playlist removed — read from store.getState()
 
   // Pause — play is handled in the load effect via pendingPlayOnCanPlay
   useEffect(() => {

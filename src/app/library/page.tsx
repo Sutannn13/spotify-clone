@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { MainLayout, useLayout } from "@/components/layout/MainLayout";
+import { useLayout } from "@/components/layout/MainLayout";
 import { SongList } from "@/components/music/SongList";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 import type { Song } from "@/data/songs.types";
@@ -68,7 +68,7 @@ function matchesFilter(song: Song, filter: FilterKey): boolean {
   }
 }
 
-function LibraryContent() {
+export default function LibraryPage() {
   const { allSongs, localSongs, supabaseSongs, isLoading, getCoverUrl } = useSongLibrary();
   const { openDeleteSong, openEditSong } = useLayout();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
@@ -152,12 +152,3 @@ function LibraryContent() {
     </div>
   );
 }
-
-export default function LibraryPage() {
-  return (
-    <MainLayout>
-      <LibraryContent />
-    </MainLayout>
-  );
-}
-

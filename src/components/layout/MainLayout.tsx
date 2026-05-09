@@ -61,7 +61,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const prevSongIdRef = useRef<string | null>(null);
   const lastLibraryErrorRef = useRef<string | null>(null);
   const playlistSetRef = useRef<boolean>(false);
-  const lastPlaylistLengthRef = useRef<number>(0);
 
   // Track recently played when a new song starts playing
   useEffect(() => {
@@ -78,13 +77,24 @@ export function MainLayout({ children }: MainLayoutProps) {
     toast(error, "error");
   }, [error, toast]);
 
-  // Set playlist ONCE on initial mount and when allSongs actually changes in length
-  // (i.e., song added or removed). Do NOT call repeatedly.
+  // Set playlist ONCE on initial mount and when song IDs actually change.
+  // The store's setPlaylist preserves currentIndex/currentTime for the current song,
+  // so navigation won't restart playback.
   useEffect(() => {
     if (allSongs.length === 0) return;
-    // Only update if song count changed (add/delete) or we haven't set it yet
-    if (allSongs.length !== lastPlaylistLengthRef.current || !playlistSetRef.current) {
-      lastPlaylistLengthRef.current = allSongs.length;
+
+    // Compare current song IDs to avoid unnecessary updates
+    const newIds = new Set(allSongs.map((s) => s.id));
+    const currentPlaylist = usePlayerStore.getState().playlist;
+    const currentIds = new Set(currentPlaylist.map((s) => s.id));
+
+    // Check if the song IDs match
+    const idsMatch =
+      newIds.size === currentIds.size &&
+      [...newIds].every((id) => currentIds.has(id));
+
+    // Only update if IDs changed or we haven't set it yet
+    if (!idsMatch || !playlistSetRef.current) {
       playlistSetRef.current = true;
       setPlaylist(allSongs);
     }
@@ -117,9 +127,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     try {
       await removeSong(songToDelete);
-      // After delete, we need to reset the playlist set flag so it can update
+      // After delete, reset the playlist set flag so it can update with new IDs
       playlistSetRef.current = false;
-      lastPlaylistLengthRef.current = 0;
       setSongToDelete(null);
       setDeleteSongId(null);
       toast("Song deleted successfully", "success");
