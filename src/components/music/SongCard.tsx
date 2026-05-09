@@ -91,8 +91,8 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
           <button
             type="button"
             onClick={handleDelete}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 z-20"
-            aria-label="Delete song"
+            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-500/80 z-20"
+            aria-label={`Delete ${song.title}`}
           >
             <Trash2 className="w-3.5 h-3.5 text-white" />
           </button>

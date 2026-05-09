@@ -9,7 +9,7 @@ import {
   useRef,
   ReactNode,
 } from "react";
-import type { Song, LyricsType } from "@/data/songs.types";
+import type { Song, LyricsType, SongSource } from "@/data/songs.types";
 import { staticSongs } from "@/data/static-songs";
 import {
   getLocalSongs,
@@ -33,6 +33,11 @@ import {
   deleteSupabaseStorageFiles,
 } from "@/lib/supabase/storage";
 
+export interface RemoveSongResult {
+  source: SongSource;
+  storageCleanupWarnings?: string[];
+}
+
 interface SongLibraryContextValue {
   allSongs: Song[];
   localSongs: Song[];
@@ -54,7 +59,7 @@ interface SongLibraryContextValue {
     coverFile?: File;
     uploadTarget?: "local" | "supabase";
   }) => Promise<Song>;
-  removeSong: (song: Song) => Promise<void>;
+  removeSong: (song: Song) => Promise<RemoveSongResult>;
   updateSong: (
     song: Song,
     data: {
@@ -330,25 +335,31 @@ export function SongLibraryProvider({ children }: { children: ReactNode }) {
   );
 
   const removeSong = useCallback(
-    async (song: Song) => {
+    async (song: Song): Promise<RemoveSongResult> => {
       if (song.source === "static") {
         throw new Error("Static songs must be edited in code.");
       }
 
       if (song.source === "supabase") {
         await deleteSupabaseSong(song.id);
-        await deleteSupabaseStorageFiles({
+        const cleanup = await deleteSupabaseStorageFiles({
           audioFileName: song.audioFileName,
           coverFileName: song.coverFileName,
         });
         await loadSongs();
-        return;
+        return {
+          source: "supabase",
+          storageCleanupWarnings: cleanup.warnings,
+        };
       }
 
       revokeCoverUrlForSong(song.id);
       revokeCachedBlobUrl(song.id);
       await deleteLocalSong(song.id);
       await loadSongs();
+      return {
+        source: "local",
+      };
     },
     [loadSongs, revokeCoverUrlForSong]
   );

@@ -22,6 +22,10 @@ export interface UploadedStorageFile {
   fileName: string;
 }
 
+export interface SupabaseStorageCleanupResult {
+  warnings: string[];
+}
+
 export async function uploadSongAudioFile(
   songId: string,
   file: File
@@ -83,24 +87,57 @@ export async function uploadSongCoverFile(
 export async function deleteSupabaseStorageFiles(params: {
   audioFileName?: string | null;
   coverFileName?: string | null;
-}) {
+}): Promise<SupabaseStorageCleanupResult> {
   const supabase = getSupabaseClient();
-  if (!supabase) return;
+  if (!supabase) {
+    return {
+      warnings: ["Supabase client is not configured; storage cleanup skipped."],
+    };
+  }
 
-  const deletions: Promise<unknown>[] = [];
+  const warnings: string[] = [];
+  const deletions: Array<{
+    label: string;
+    run: Promise<{ error: { message: string } | null }>;
+  }> = [];
 
   if (params.audioFileName) {
-    deletions.push(
-      supabase.storage.from(AUDIO_BUCKET).remove([params.audioFileName])
-    );
+    deletions.push({
+      label: `audio file "${params.audioFileName}"`,
+      run: supabase.storage
+        .from(AUDIO_BUCKET)
+        .remove([params.audioFileName]),
+    });
   }
 
   if (params.coverFileName) {
-    deletions.push(
-      supabase.storage.from(COVER_BUCKET).remove([params.coverFileName])
-    );
+    deletions.push({
+      label: `cover file "${params.coverFileName}"`,
+      run: supabase.storage
+        .from(COVER_BUCKET)
+        .remove([params.coverFileName]),
+    });
   }
 
-  await Promise.allSettled(deletions);
+  if (deletions.length === 0) {
+    return { warnings };
+  }
+
+  const results = await Promise.allSettled(deletions.map((d) => d.run));
+  results.forEach((result, idx) => {
+    const label = deletions[idx].label;
+    if (result.status === "rejected") {
+      warnings.push(`Failed to clean up ${label}.`);
+      return;
+    }
+
+    if (result.value.error) {
+      warnings.push(
+        `Failed to clean up ${label}: ${result.value.error.message}`
+      );
+    }
+  });
+
+  return { warnings };
 }
 

@@ -43,7 +43,16 @@ export function toggleLikeSong(songId: string): boolean {
 }
 
 export function setLikedSongs(ids: string[]): void {
+  if (typeof window === "undefined") return;
   localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(ids));
+  window.dispatchEvent(new Event("aura-likes-changed"));
+}
+
+export function removeLikedSongId(songId: string): void {
+  if (typeof window === "undefined") return;
+  const next = getLikedSongIds().filter((id) => id !== songId);
+  localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("aura-likes-changed"));
 }
 
 // --- Recently Played ---
@@ -85,5 +94,14 @@ export function trackRecentPlay(songId: string): void {
 }
 
 export function clearRecentPlays(): void {
+  if (typeof window === "undefined") return;
   localStorage.removeItem(RECENT_PLAYS_KEY);
+  window.dispatchEvent(new Event("aura-recent-plays-changed"));
+}
+
+export function removeRecentPlaySongId(songId: string): void {
+  if (typeof window === "undefined") return;
+  const next = getRecentPlays().filter((item) => item.songId !== songId);
+  localStorage.setItem(RECENT_PLAYS_KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("aura-recent-plays-changed"));
 }

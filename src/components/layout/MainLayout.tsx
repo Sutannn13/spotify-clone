@@ -14,7 +14,7 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePlayerStore } from "@/store/playerStore";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
-import { trackRecentPlay } from "@/lib/storage";
+import { trackRecentPlay, removeLikedSongId, removeRecentPlaySongId } from "@/lib/storage";
 import { useToast } from "@/components/ui/Toast";
 import type { Song } from "@/data/songs.types";
 
@@ -110,33 +110,118 @@ export function MainLayout({ children }: MainLayoutProps) {
     setEditSongOpen(true);
   }, []);
 
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!songToDelete) return;
+  const removeSongFromPlayerState = useCallback((songId: string) => {
+    const state = usePlayerStore.getState();
+    const currentSong = state.getCurrentSong();
+    const wasCurrentSong = currentSong?.id === songId;
 
-    const store = usePlayerStore.getState();
-    const current = store.getCurrentSong();
+    const oldPlaylist = state.playlist;
+    const oldQueue = state.queue;
+    const oldCurrentIndex = state.currentIndex;
+    const removedPlaylistIndex = oldPlaylist.findIndex((song) => song.id === songId);
 
-    // If deleting the currently playing song, move to next or stop
-    if (current?.id === songToDelete.id) {
-      if (store.playlist.length > 1) {
-        store.next({ manual: true });
+    const nextPlaylist = oldPlaylist.filter((song) => song.id !== songId);
+    const nextQueue = oldQueue.filter((song) => song.id !== songId);
+
+    let nextQueuePosition = state.queuePosition;
+    if (nextQueuePosition >= 0) {
+      const removedBeforePosition = oldQueue
+        .slice(0, nextQueuePosition)
+        .filter((song) => song.id === songId).length;
+      const removedAtPosition =
+        nextQueuePosition < oldQueue.length &&
+        oldQueue[nextQueuePosition]?.id === songId;
+
+      if (removedAtPosition) {
+        nextQueuePosition = -1;
       } else {
-        store.pause();
+        nextQueuePosition = Math.max(-1, nextQueuePosition - removedBeforePosition);
       }
     }
 
+    if (wasCurrentSong) {
+      if (nextPlaylist.length > 0) {
+        const nextIndex =
+          oldCurrentIndex >= nextPlaylist.length ? 0 : Math.max(0, oldCurrentIndex);
+        usePlayerStore.setState({
+          playlist: nextPlaylist,
+          currentIndex: nextIndex,
+          queue: nextQueue,
+          queuePosition: nextQueuePosition,
+          repeatMode: "off",
+          repeatSongId: null,
+          isPlaying: true,
+          currentTime: 0,
+          duration: 0,
+          isLoading: true,
+          playbackError: null,
+        });
+      } else {
+        usePlayerStore.setState({
+          playlist: [],
+          currentIndex: -1,
+          queue: nextQueue,
+          queuePosition: -1,
+          repeatMode: "off",
+          repeatSongId: null,
+          isPlaying: false,
+          currentTime: 0,
+          duration: 0,
+          isLoading: false,
+          playbackError: null,
+        });
+      }
+      return;
+    }
+
+    let nextCurrentIndex = oldCurrentIndex;
+    if (removedPlaylistIndex !== -1 && removedPlaylistIndex < oldCurrentIndex) {
+      nextCurrentIndex = Math.max(0, oldCurrentIndex - 1);
+    }
+
+    usePlayerStore.setState({
+      playlist: nextPlaylist,
+      currentIndex: nextPlaylist.length === 0 ? -1 : nextCurrentIndex,
+      queue: nextQueue,
+      queuePosition: nextQueuePosition,
+      playbackError: state.playbackError,
+    });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!songToDelete) return;
+    if (songToDelete.source === "static") {
+      toast("Static songs must be edited in code.", "info");
+      return;
+    }
+
     try {
-      await removeSong(songToDelete);
+      const result = await removeSong(songToDelete);
+      removeSongFromPlayerState(songToDelete.id);
+      removeLikedSongId(songToDelete.id);
+      removeRecentPlaySongId(songToDelete.id);
+
       // After delete, reset the playlist set flag so it can update with new IDs
       playlistSetRef.current = false;
       setSongToDelete(null);
       setDeleteSongId(null);
-      toast("Song deleted successfully", "success");
+
+      if (result.source === "local") {
+        toast("Song deleted from local library", "success");
+      } else if (result.source === "supabase") {
+        toast("Song deleted from cloud library", "success");
+        if (result.storageCleanupWarnings && result.storageCleanupWarnings.length > 0) {
+          toast(
+            "Song deleted, but storage cleanup may need manual review",
+            "info"
+          );
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete song.";
       toast(message, "error");
     }
-  }, [songToDelete, removeSong, toast]);
+  }, [songToDelete, removeSongFromPlayerState, removeSong, toast]);
 
   // Cover resolver for player components
   const coverResolver = useCallback(

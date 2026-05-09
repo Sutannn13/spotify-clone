@@ -167,7 +167,7 @@ export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongList
                           type="button"
                           className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
                           onClick={(e) => handleEdit(e, song)}
-                          aria-label="Edit song"
+                          aria-label={`Edit ${song.title}`}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -177,7 +177,7 @@ export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongList
                           type="button"
                           className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
                           onClick={(e) => handleDelete(e, song)}
-                          aria-label="Delete song"
+                          aria-label={`Delete ${song.title}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

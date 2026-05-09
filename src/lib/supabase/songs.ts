@@ -160,6 +160,15 @@ export async function deleteSupabaseSong(songId: string): Promise<Song | null> {
     .maybeSingle();
 
   if (error) {
+    const lowerMessage = error.message.toLowerCase();
+    if (
+      error.code === "42501" ||
+      lowerMessage.includes("row-level security") ||
+      lowerMessage.includes("permission denied") ||
+      lowerMessage.includes("not allowed")
+    ) {
+      throw new Error("Delete failed. Check Supabase delete policy.");
+    }
     throw new Error(`Failed to delete song: ${error.message}`);
   }
 
