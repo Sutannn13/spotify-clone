@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Heart } from "lucide-react";
-import { isLikedSong, toggleLikeSong } from "@/lib/storage";
+import { isLikedSong, toggleLike } from "@/lib/storage";
 import { clsx } from "clsx";
 
 interface LikeButtonProps {
@@ -18,13 +18,25 @@ export function LikeButton({ songId, className, size = "sm" }: LikeButtonProps) 
     setLiked(isLikedSong(songId));
   }, [songId]);
 
+  // Sync when external changes happen (cloud sync, other tabs)
+  useEffect(() => {
+    const onLikesChanged = () => {
+      setLiked(isLikedSong(songId));
+    };
+    window.addEventListener("aura-likes-changed", onLikesChanged);
+    return () => window.removeEventListener("aura-likes-changed", onLikesChanged);
+  }, [songId]);
+
   const handleToggle = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      const nowLiked = toggleLikeSong(songId);
-      setLiked(nowLiked);
+      // Optimistic update
+      const willLike = !liked;
+      setLiked(willLike);
+      // Persist (local + cloud)
+      await toggleLike(songId);
     },
-    [songId]
+    [songId, liked]
   );
 
   const iconSize = size === "md" ? "w-5 h-5" : "w-3.5 h-3.5";
@@ -43,7 +55,7 @@ export function LikeButton({ songId, className, size = "sm" }: LikeButtonProps) 
         className
       )}
       aria-label={liked ? "Unlike" : "Like"}
-      aria-pressed={liked}
+      aria-pressed={liked ? "true" : "false"}
     >
       <Heart
         className={clsx(iconSize, "transition-transform", liked && "scale-110")}

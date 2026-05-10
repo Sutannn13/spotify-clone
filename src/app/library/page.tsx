@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useLayout } from "@/components/layout/MainLayout";
 import { SongList } from "@/components/music/SongList";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { isLikedSong } from "@/lib/storage";
@@ -70,7 +71,8 @@ function matchesFilter(song: Song, filter: FilterKey): boolean {
 
 export default function LibraryPage() {
   const { allSongs, localSongs, supabaseSongs, isLoading, getCoverUrl } = useSongLibrary();
-  const { openDeleteSong, openEditSong } = useLayout();
+  const { isAdmin } = useAdminAuth();
+  const { openDeleteSong, openEditSong: openEditSongLayout } = useLayout();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
   const getCover = useCallback((song: Song) => getCoverUrl(song), [getCoverUrl]);
@@ -81,6 +83,20 @@ export default function LibraryPage() {
   );
 
   const builtInCount = Math.max(0, allSongs.length - localSongs.length - supabaseSongs.length);
+
+  // Admin-only edit/delete for Supabase songs
+  const openEditSong = useCallback((song: Song) => {
+    if (!isAdmin && song.source === "supabase") return;
+    openEditSongLayout(song);
+  }, [isAdmin, openEditSongLayout]);
+
+  const openDeleteSongFiltered = useCallback((song: Song) => {
+    if (!isAdmin && song.source === "supabase") return;
+    openDeleteSong(song);
+  }, [isAdmin, openDeleteSong]);
+
+  const handleDeleteSong = isAdmin ? openDeleteSongFiltered : undefined;
+  const handleEditSong = isAdmin ? openEditSong : undefined;
 
   if (isLoading) {
     return (
@@ -142,8 +158,8 @@ export default function LibraryPage() {
           <SongList
             songs={filtered}
             getCover={getCover}
-            onDeleteSong={openDeleteSong}
-            onEditSong={openEditSong}
+            onDeleteSong={handleDeleteSong}
+            onEditSong={handleEditSong}
           />
         </div>
       )}

@@ -33,8 +33,8 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   supabaseClient = createClient(url, key, {
     auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+      persistSession: true,
+      autoRefreshToken: true,
     },
   });
 

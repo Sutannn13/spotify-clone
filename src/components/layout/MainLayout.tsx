@@ -10,10 +10,12 @@ import { NowPlayingModal } from "@/components/player/NowPlayingModal";
 import { AddSongModal } from "@/components/music/AddSongModal";
 import { EditSongModal } from "@/components/music/EditSongModal";
 import { DeleteSongDialog } from "@/components/music/DeleteSongDialog";
+import { LoginModal } from "@/components/music/LoginModal";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePlayerStore } from "@/store/playerStore";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { trackRecentPlay, removeLikedSongId, removeRecentPlaySongId } from "@/lib/storage";
 import { useToast } from "@/components/ui/Toast";
 import type { Song } from "@/data/songs.types";
@@ -43,6 +45,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   useKeyboardShortcuts();
 
   const { allSongs, addSong, removeSong, updateSong, getCoverUrl, supabaseEnabled, error } = useSongLibrary();
+  const { isAdmin } = useAdminAuth();
   const { toast } = useToast();
 
   const isFullscreen = usePlayerStore((s) => s.isFullscreen);
@@ -58,6 +61,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [editSong, setEditSong] = useState<Song | null>(null);
   const [editSongOpen, setEditSongOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
   const prevSongIdRef = useRef<string | null>(null);
   const lastLibraryErrorRef = useRef<string | null>(null);
   const playlistSetRef = useRef<boolean>(false);
@@ -100,15 +104,23 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [allSongs, setPlaylist]);
 
-  const openAddSong = useCallback(() => setAddSongOpen(true), []);
+  const openAddSong = useCallback(() => {
+    if (supabaseEnabled && !isAdmin) {
+      setLoginModalOpen(true);
+      return;
+    }
+    setAddSongOpen(true);
+  }, [supabaseEnabled, isAdmin]);
   const openDeleteSong = useCallback((song: Song) => {
+    if (song.source === "supabase" && !isAdmin) return;
     setSongToDelete(song);
     setDeleteSongId(song.id);
-  }, []);
+  }, [isAdmin]);
   const openEditSong = useCallback((song: Song) => {
+    if (song.source === "supabase" && !isAdmin) return;
     setEditSong(song);
     setEditSongOpen(true);
-  }, []);
+  }, [isAdmin]);
 
   const removeSongFromPlayerState = useCallback((songId: string) => {
     const state = usePlayerStore.getState();
@@ -192,6 +204,10 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (!songToDelete) return;
     if (songToDelete.source === "static") {
       toast("Static songs must be edited in code.", "info");
+      return;
+    }
+    if (songToDelete.source === "supabase" && !isAdmin) {
+      toast("Only admins can delete cloud songs.", "info");
       return;
     }
 
@@ -296,6 +312,11 @@ export function MainLayout({ children }: MainLayoutProps) {
             setEditSong(null);
           }}
           onSave={updateSong}
+        />
+
+        <LoginModal
+          isOpen={loginModalOpen}
+          onClose={() => setLoginModalOpen(false)}
         />
       </div>
     </LayoutContext.Provider>

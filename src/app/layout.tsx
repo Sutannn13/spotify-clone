@@ -4,6 +4,7 @@ import "./globals.css";
 import { SongLibraryProvider } from "@/hooks/SongLibraryProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { AdminAuthProvider } from "@/hooks/useAdminAuth";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-bg-base text-text-primary antialiased">
+        <AdminAuthProvider>
         <SongLibraryProvider>
           <ToastProvider>
             <MainLayout>
@@ -35,6 +37,7 @@ export default function RootLayout({
             </MainLayout>
           </ToastProvider>
         </SongLibraryProvider>
+      </AdminAuthProvider>
       </body>
     </html>
   );

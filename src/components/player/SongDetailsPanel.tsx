@@ -1,9 +1,12 @@
 "use client";
 
-import { Clock, Disc, Zap, Moon, Sun, Heart } from "lucide-react";
+import { Clock, Disc, Zap, Moon, Sun, Heart, Type } from "lucide-react";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
+import { useState } from "react";
+import { LyricsTimelineEditor } from "@/components/lyrics/LyricsTimelineEditor";
+import { useSongLibrary } from "@/hooks/SongLibraryProvider";
 
 interface SongDetailsPanelProps {
   song: Song | null;
@@ -50,6 +53,24 @@ function getListeningMood(mood?: string, genre?: string): {
 }
 
 export function SongDetailsPanel({ song, coverResolver }: SongDetailsPanelProps) {
+  const { updateSong } = useSongLibrary();
+  const [lyricsEditorOpen, setLyricsEditorOpen] = useState(false);
+
+  const handleSaveLyrics = async (
+    s: Song,
+    data: { lyrics: string; lyricsType: "lrc" }
+  ) => {
+    await updateSong(s, {
+      title: s.title,
+      artist: s.artist,
+      album: s.album,
+      lyrics: data.lyrics,
+      lyricsType: data.lyricsType,
+      mood: s.mood,
+      genre: s.genre,
+    });
+  };
+
   if (!song) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-text-muted py-16">
@@ -125,7 +146,20 @@ export function SongDetailsPanel({ song, coverResolver }: SongDetailsPanelProps)
             </p>
           </div>
           <div className="bg-bg-hover rounded-xl p-3.5">
-            <p className="text-xs text-text-muted mb-1">Lyrics</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-text-muted mb-1">Lyrics</p>
+              {(song.source === "local" || song.source === "supabase") && (
+                <button
+                  type="button"
+                  onClick={() => setLyricsEditorOpen(true)}
+                  className="text-xs text-accent hover:text-accent/80 flex items-center gap-1 transition-colors"
+                  aria-label="Edit synced lyrics"
+                >
+                  <Type className="w-3 h-3" />
+                  Edit
+                </button>
+              )}
+            </div>
             <p className={clsx("text-sm font-medium", lyricsStatusColor)}>
               {lyricsStatus}
             </p>
@@ -196,6 +230,13 @@ export function SongDetailsPanel({ song, coverResolver }: SongDetailsPanelProps)
           </div>
         </div>
       </div>
-    </div>
+
+        <LyricsTimelineEditor
+          isOpen={lyricsEditorOpen}
+          song={song}
+          onClose={() => setLyricsEditorOpen(false)}
+          onSave={handleSaveLyrics}
+        />
+      </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   Clock,
   Sparkles,
   Brain,
+  Stethoscope,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -46,6 +47,12 @@ const quickAccessItems = [
     label: "Liked Songs",
     icon: Heart,
     gradient: "from-accent to-accent-muted",
+  },
+  {
+    href: "/audio-health",
+    label: "Audio Health",
+    icon: Stethoscope,
+    gradient: "from-cyan-600 to-blue-900",
   },
 ];
 
