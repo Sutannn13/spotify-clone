@@ -1,36 +1,55 @@
 {
-  "schemaVersion": "active-memory-v1",
-  "snapshotPurpose": "compact-cross-session-continuity",
-  "updatePolicy": {
-    "writeWhen": "natural-task-boundary",
-    "overwriteOnlyWithCurrentRepoEvidence": true,
-    "preserveUserOwnedContent": true
-  },
-  "project": {
-    "name": "spoti clone",
-    "currentFocus": "",
-    "durableFacts": []
-  },
-  "progress": {
-    "lastAchievements": [],
-    "pendingIssues": [],
-    "nextBestActions": [],
-    "validationState": []
-  },
-  "designContinuity": {
-    "visualLanguageContinuity": "opt-in-only",
-    "currentConceptualAnchor": "",
-    "forbiddenCarryover": [
-      "prior-project-style-memory",
-      "old-ui-visual-dna-without-user-approval",
-      "generic-dashboard-defaults"
-    ]
-  },
-  "privacy": {
-    "storeSecrets": false,
-    "storeRawChatLogs": false,
-    "redactSensitiveTextBeforeWriting": true
-  },
-  "generatedAt": "2026-05-07T14:11:03.036Z",
-  "lastUpdatedAt": null
+    "schemaVersion":  "active-memory-v1",
+    "snapshotPurpose":  "compact-cross-session-continuity",
+    "updatePolicy":  {
+                         "writeWhen":  "natural-task-boundary",
+                         "overwriteOnlyWithCurrentRepoEvidence":  true,
+                         "preserveUserOwnedContent":  true
+                     },
+    "project":  {
+                    "name":  "spoti clone",
+                    "currentFocus":  "Home song actions wiring, functional More options menu, and fullscreen cover focus interaction without playback regression.",
+                    "durableFacts":  [
+                                         "SongList now uses a functional SongActionsMenu with Play/Pause, Add to queue, Like/Unlike, and source-aware Edit/Delete.",
+                                         "Home page passes layout handlers to SongList and SongCard via useLayout for edit/delete dialogs.",
+                                         "Fullscreen cover focus mode is implemented in NowPlayingModal with desktop drag focus and mobile toggle fallback.",
+                                         "Desktop and mini players now treat Supabase covers as direct URLs while local covers still use blob resolution."
+                                     ]
+                },
+    "progress":  {
+                     "lastAchievements":  [
+                                              "Fixed non-functional More options action path in song list/card surfaces.",
+                                              "Preserved route navigation audio persistence and merged source playback behavior after UI action changes.",
+                                              "Validated production build success and dev route HTTP 200 checks for key pages."
+                                          ],
+                     "pendingIssues":  [
+                                           "Browser-level manual interaction checks for drag gestures, popover UX, and touch behavior still required.",
+                                           "Non-admin Supabase edit/delete UX remains guard-blocked by existing layout policy and may need product messaging refinement."
+                                       ],
+                     "nextBestActions":  [
+                                             "Run in-browser manual regression checklist for Home, Library, Search, and fullscreen player gestures.",
+                                             "Add targeted component/integration tests for SongActionsMenu event propagation and visibility behavior if test harness is added."
+                                         ],
+                     "validationState":  [
+                                             "npm run build: passed",
+                                             "npm run dev smoke: passed",
+                                             "Route probes: /, /library, /search, /liked, /recently-played, /made-for-you, /mood, /audio-health -\u003e 200"
+                                         ]
+                 },
+    "designContinuity":  {
+                             "visualLanguageContinuity":  "opt-in-only",
+                             "currentConceptualAnchor":  "",
+                             "forbiddenCarryover":  [
+                                                        "prior-project-style-memory",
+                                                        "old-ui-visual-dna-without-user-approval",
+                                                        "generic-dashboard-defaults"
+                                                    ]
+                         },
+    "privacy":  {
+                    "storeSecrets":  false,
+                    "storeRawChatLogs":  false,
+                    "redactSensitiveTextBeforeWriting":  true
+                },
+    "generatedAt":  "2026-05-07T14:11:03.036Z",
+    "lastUpdatedAt":  "2026-05-10T11:13:23.2473341+07:00"
 }

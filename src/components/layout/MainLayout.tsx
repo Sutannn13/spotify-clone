@@ -237,7 +237,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       const message = err instanceof Error ? err.message : "Failed to delete song.";
       toast(message, "error");
     }
-  }, [songToDelete, removeSongFromPlayerState, removeSong, toast]);
+  }, [songToDelete, removeSongFromPlayerState, removeSong, toast, isAdmin]);
 
   // Cover resolver for player components
   const coverResolver = useCallback(

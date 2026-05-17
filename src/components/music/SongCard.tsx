@@ -1,21 +1,25 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Play, Pause, Loader2, Trash2 } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
+import { SongActionsMenu } from "./SongActionsMenu";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
+import { useEffect, useState } from "react";
+import { isLikedSong, toggleLike } from "@/lib/storage";
 
 interface SongCardProps {
   song: Song;
   getCover: (song: Song) => string;
   onDeleteSong?: (song: Song) => void;
+  onEditSong?: (song: Song) => void;
 }
 
-export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
+export function SongCard({ song, getCover, onDeleteSong, onEditSong }: SongCardProps) {
   const currentSong = usePlayerStore((s) => {
     const pl = s.playlist;
     const idx = s.currentIndex;
@@ -24,6 +28,8 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
   const playlist = usePlayerStore((s) => s.playlist);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const [, forceLikesSync] = useState(0);
 
   const { playOrPause } = usePlaybackActions();
 
@@ -31,15 +37,25 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
   const isCurrentlyLoading = isCurrentSong && isLoading;
   const isCurrentlyPlaying = isCurrentSong && isPlaying;
   const coverUrl = getCover(song);
+  const liked = isLikedSong(song.id);
 
-  const handlePlay = () => {
-    const list = playlist.length > 0 ? playlist : [song];
-    playOrPause(song, list);
+  useEffect(() => {
+    const handleLikesChanged = () => {
+      forceLikesSync((v) => v + 1);
+    };
+    window.addEventListener("aura-likes-changed", handleLikesChanged);
+    return () => {
+      window.removeEventListener("aura-likes-changed", handleLikesChanged);
+    };
+  }, []);
+
+  const handlePlay = (targetSong: Song) => {
+    const list = playlist.length > 0 ? playlist : [targetSong];
+    playOrPause(targetSong, list);
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDeleteSong?.(song);
+  const handleToggleLike = async (targetSong: Song) => {
+    await toggleLike(targetSong.id, targetSong.source);
   };
 
   return (
@@ -67,11 +83,11 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
             "absolute inset-0 flex items-center justify-center transition-opacity cursor-pointer z-20 rounded-lg",
             isCurrentSong ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           )}
-          onClick={handlePlay}
+          onClick={() => handlePlay(song)}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") handlePlay();
+            if (e.key === "Enter" || e.key === " ") handlePlay(song);
           }}
           aria-label={isCurrentSong && isPlaying ? "Pause" : "Play"}
         >
@@ -86,17 +102,20 @@ export function SongCard({ song, getCover, onDeleteSong }: SongCardProps) {
           </div>
         </div>
 
-        {/* Delete button (local songs only) */}
-        {(song.source === "local" || song.source === "supabase") && onDeleteSong && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-500/80 z-20"
-            aria-label={`Delete ${song.title}`}
-          >
-            <Trash2 className="w-3.5 h-3.5 text-white" />
-          </button>
-        )}
+        <div className="absolute top-2 right-2 z-30">
+          <SongActionsMenu
+            song={song}
+            isCurrent={isCurrentSong}
+            isPlaying={isPlaying}
+            isLiked={liked}
+            onPlayPause={handlePlay}
+            onAddToQueue={addToQueue}
+            onToggleLike={handleToggleLike}
+            onEdit={onEditSong}
+            onDelete={onDeleteSong}
+            triggerClassName="bg-black/60 hover:bg-black/75 text-white/85 hover:text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          />
+        </div>
 
         {/* Now playing equalizer indicator */}
         {isCurrentSong && isCurrentlyPlaying && (

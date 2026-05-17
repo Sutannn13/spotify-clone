@@ -1,13 +1,16 @@
 "use client";
 
-import { Play, Pause, Loader2, MoreHorizontal, Trash2, Pencil } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { usePlayerStore } from "@/store/playerStore";
 import { usePlaybackActions } from "@/hooks/usePlaybackActions";
 import { LikeButton } from "./LikeButton";
+import { SongActionsMenu } from "./SongActionsMenu";
 import { PremiumCover } from "@/components/ui/PremiumCover";
 import type { Song } from "@/data/songs.types";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
+import { isLikedSong, toggleLike } from "@/lib/storage";
 
 interface SongListProps {
   songs: Song[];
@@ -31,21 +34,28 @@ export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongList
   });
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const [, forceLikesSync] = useState(0);
 
   const { playOrPause } = usePlaybackActions();
+
+  useEffect(() => {
+    const handleLikesChanged = () => {
+      forceLikesSync((v) => v + 1);
+    };
+
+    window.addEventListener("aura-likes-changed", handleLikesChanged);
+    return () => {
+      window.removeEventListener("aura-likes-changed", handleLikesChanged);
+    };
+  }, []);
 
   const handlePlay = (song: Song) => {
     playOrPause(song, songs);
   };
 
-  const handleDelete = (e: React.MouseEvent, song: Song) => {
-    e.stopPropagation();
-    onDeleteSong?.(song);
-  };
-
-  const handleEdit = (e: React.MouseEvent, song: Song) => {
-    e.stopPropagation();
-    onEditSong?.(song);
+  const handleToggleLike = async (song: Song) => {
+    await toggleLike(song.id, song.source);
   };
 
   return (
@@ -67,6 +77,7 @@ export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongList
           const isCurrentLoading = isCurrent && isLoading;
           const isCurrentPlaying = isCurrent && isPlaying;
           const coverUrl = getCover(song);
+          const liked = isLikedSong(song.id);
 
           return (
             <motion.div
@@ -159,39 +170,19 @@ export function SongList({ songs, getCover, onDeleteSong, onEditSong }: SongList
                 <LikeButton songId={song.id} />
 
                 {/* Actions */}
-                <div className="w-10 flex items-center justify-center gap-1">
-                  {(song.source === "local" || song.source === "supabase") && (onDeleteSong || onEditSong) ? (
-                    <>
-                      {onEditSong && (
-                        <button
-                          type="button"
-                          className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
-                          onClick={(e) => handleEdit(e, song)}
-                          aria-label={`Edit ${song.title}`}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {onDeleteSong && (
-                        <button
-                          type="button"
-                          className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-red-400 hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
-                          onClick={(e) => handleDelete(e, song)}
-                          aria-label={`Delete ${song.title}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors opacity-0 group-hover:opacity-100"
-                      aria-label="More options"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  )}
+                <div className="w-10 flex items-center justify-center">
+                  <SongActionsMenu
+                    song={song}
+                    isCurrent={isCurrent}
+                    isPlaying={isPlaying}
+                    isLiked={liked}
+                    onPlayPause={handlePlay}
+                    onAddToQueue={addToQueue}
+                    onToggleLike={handleToggleLike}
+                    onEdit={onEditSong}
+                    onDelete={onDeleteSong}
+                    triggerClassName="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  />
                 </div>
               </div>
             </motion.div>

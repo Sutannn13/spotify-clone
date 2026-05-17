@@ -42,9 +42,9 @@ export function MiniPlayer() {
       setCoverUrl("");
       return;
     }
-    if (currentSong.source === "static") {
+    if (currentSong.source === "static" || currentSong.source === "supabase") {
       revokeBlobCover();
-      setCoverUrl(currentSong.coverUrl);
+      setCoverUrl(currentSong.coverUrl || "");
     } else {
       getCoverBlob(currentSong.id).then((blob) => {
         if (isCancelled) return;

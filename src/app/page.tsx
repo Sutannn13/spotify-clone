@@ -5,6 +5,7 @@ import { SongCard } from "@/components/music/SongCard";
 import { SongList } from "@/components/music/SongList";
 import { EmptyLibrary } from "@/components/music/EmptyLibrary";
 import { useSongLibrary } from "@/hooks/SongLibraryProvider";
+import { useLayout } from "@/components/layout/MainLayout";
 import { motion } from "framer-motion";
 import type { Song } from "@/data/songs.types";
 import { useMemo } from "react";
@@ -22,6 +23,7 @@ const NEWLY_ADDED_IDS = [
 
 export default function HomePage() {
   const { allSongs, isLoading, getCoverUrl } = useSongLibrary();
+  const { openDeleteSong, openEditSong } = useLayout();
 
   const getCover = useMemo(
     () => (song: Song) => getCoverUrl(song),
@@ -75,7 +77,12 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08, duration: 0.3 }}
               >
-                <SongCard song={song} getCover={getCover} />
+                <SongCard
+                  song={song}
+                  getCover={getCover}
+                  onDeleteSong={openDeleteSong}
+                  onEditSong={openEditSong}
+                />
               </motion.div>
             ))}
           </div>
@@ -98,7 +105,12 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06, duration: 0.3 }}
               >
-                <SongCard song={song} getCover={getCover} />
+                <SongCard
+                  song={song}
+                  getCover={getCover}
+                  onDeleteSong={openDeleteSong}
+                  onEditSong={openEditSong}
+                />
               </motion.div>
             ))}
           </div>
@@ -111,7 +123,12 @@ export default function HomePage() {
             Your Library
           </h2>
         </div>
-        <SongList songs={allSongs} getCover={getCover} />
+        <SongList
+          songs={allSongs}
+          getCover={getCover}
+          onDeleteSong={openDeleteSong}
+          onEditSong={openEditSong}
+        />
       </section>
 
       <div className="h-8" />

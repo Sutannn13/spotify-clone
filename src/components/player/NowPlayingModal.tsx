@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { usePlayerStore } from "@/store/playerStore";
 import { PlayerControls } from "./PlayerControls";
 import { ProgressBar } from "./ProgressBar";
@@ -50,14 +50,47 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
 
   const [activeSlide, setActiveSlide] = useState<SlideId>("cover");
   const [slideDirection, setSlideDirection] = useState(0);
+  const [coverFocusMode, setCoverFocusMode] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   const slideIndex = SLIDES.findIndex((s) => s.id === activeSlide);
+  const currentSongId = currentSong?.id;
 
   const goToSlide = (id: SlideId) => {
     const newIndex = SLIDES.findIndex((s) => s.id === id);
     setSlideDirection(newIndex > slideIndex ? 1 : -1);
     setActiveSlide(id);
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (activeSlide !== "cover" && coverFocusMode) {
+      setCoverFocusMode(false);
+    }
+  }, [activeSlide, coverFocusMode]);
+
+  useEffect(() => {
+    setCoverFocusMode(false);
+  }, [currentSongId]);
+
+  const handleCoverDragEnd = (offsetY: number) => {
+    if (offsetY > 60) {
+      setCoverFocusMode((prev) => !prev);
+      return;
+    }
+    if (offsetY < -60) {
+      setCoverFocusMode(false);
+    }
   };
 
   if (!isFullscreen || !currentSong) return null;
@@ -82,11 +115,11 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: "100%" }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        drag="y"
+        drag={isDesktop ? false : "y"}
         dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.2}
+        dragElastic={isDesktop ? 0 : 0.2}
         onDragEnd={(_, info) => {
-          if (info.offset.y > 80) {
+          if (!isDesktop && info.offset.y > 80) {
             setFullscreen(false);
           }
         }}
@@ -149,39 +182,106 @@ export function NowPlayingModal({ songs, coverResolver }: NowPlayingModalProps) 
               className="flex-1 flex flex-col overflow-hidden"
             >
               {activeSlide === "cover" && (
-                <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-8 py-6 sm:py-8 gap-5 sm:gap-6 overflow-hidden">
-                  {/* Premium album cover with vinyl disc */}
-                  <PremiumCover
-                    src={coverUrl}
-                    alt={`${currentSong.title} cover`}
-                    size="xl"
-                    rounded="2xl"
-                    playing={isPlaying}
-                    showDisc
-                    tilt
-                    priority
-                    sizes="(max-width: 640px) 85vw, 320px"
+                <div className="relative flex-1 flex flex-col items-center justify-center px-6 sm:px-8 py-6 sm:py-8 overflow-hidden">
+                  <motion.div
+                    aria-hidden="true"
+                    className="absolute inset-0 pointer-events-none"
+                    animate={{
+                      opacity: coverFocusMode ? 1 : 0.65,
+                      background:
+                        "radial-gradient(65% 60% at 50% 30%, rgba(255,255,255,0.1), rgba(0,0,0,0.0)), linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.55))",
+                    }}
+                    transition={{ duration: prefersReducedMotion ? 0 : 0.28 }}
                   />
 
-                  <div className="w-full text-center space-y-1">
-                    <div className="flex items-center justify-center gap-2">
-                      <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
-                        {currentSong.title}
-                      </h2>
-                      <LikeButton songId={currentSong.id} size="md" />
-                    </div>
-                    <p className="text-sm text-text-secondary truncate">
-                      {currentSong.artist}
-                    </p>
-                    {currentSong.album && (
-                      <p className="text-xs text-text-muted truncate">
-                        {currentSong.album}
+                  <motion.div
+                    drag={isDesktop ? "y" : false}
+                    dragConstraints={{ top: 0, bottom: 0 }}
+                    dragElastic={isDesktop ? 0.09 : 0}
+                    onDrag={(event) => event.stopPropagation()}
+                    onDragStart={(event) => event.stopPropagation()}
+                    onDragEnd={(event, info) => {
+                      event.stopPropagation();
+                      if (!isDesktop) return;
+                      handleCoverDragEnd(info.offset.y);
+                    }}
+                    className="w-full flex flex-col items-center gap-5 sm:gap-6 relative z-10"
+                  >
+                    <motion.div
+                      animate={{
+                        scale: coverFocusMode ? 1.12 : 1,
+                        y: coverFocusMode ? -4 : 0,
+                      }}
+                      transition={{
+                        duration: prefersReducedMotion ? 0 : 0.32,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <PremiumCover
+                        src={coverUrl}
+                        alt={`${currentSong.title} cover`}
+                        size="xl"
+                        rounded="2xl"
+                        playing={isPlaying}
+                        showDisc
+                        tilt
+                        priority
+                        sizes="(max-width: 640px) 85vw, 320px"
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      className="w-full text-center space-y-1"
+                      animate={{
+                        opacity: coverFocusMode ? 0.86 : 1,
+                        y: coverFocusMode ? 8 : 0,
+                        scale: coverFocusMode ? 0.97 : 1,
+                      }}
+                      transition={{
+                        duration: prefersReducedMotion ? 0 : 0.26,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <h2 className="text-xl font-semibold text-text-primary tracking-tight truncate">
+                          {currentSong.title}
+                        </h2>
+                        <LikeButton songId={currentSong.id} size="md" />
+                      </div>
+                      <p className="text-sm text-text-secondary truncate">
+                        {currentSong.artist}
+                      </p>
+                      {currentSong.album && (
+                        <p className="text-xs text-text-muted truncate">
+                          {currentSong.album}
+                        </p>
+                      )}
+                      {playbackError && (
+                        <p className="text-xs text-red-400 mt-1">{playbackError}</p>
+                      )}
+                    </motion.div>
+
+                    {!isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => setCoverFocusMode((prev) => !prev)}
+                        className="mt-1 text-[11px] px-3 py-1.5 rounded-full border border-border/70 text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                        aria-label={
+                          coverFocusMode
+                            ? "Return to default cover view"
+                            : "Focus album cover"
+                        }
+                      >
+                        {coverFocusMode ? "Default view" : "Focus cover"}
+                      </button>
+                    )}
+
+                    {isDesktop && (
+                      <p className="text-[11px] text-text-muted/80">
+                        Drag down on cover to toggle focus, drag up to return.
                       </p>
                     )}
-                    {playbackError && (
-                      <p className="text-xs text-red-400 mt-1">{playbackError}</p>
-                    )}
-                  </div>
+                  </motion.div>
                 </div>
               )}
 
